@@ -1,4 +1,5 @@
 #include "DetectLeaks.h"
+#include "QuadTree.h"
 
 class StudentCodec
 {
