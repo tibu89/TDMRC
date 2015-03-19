@@ -25,15 +25,8 @@ struct Node
 
 		midX = (right + left) / 2;
 		midY = (down  + up)   / 2;
-	}
 
-	Node(Node* parentNode)
-	{
-		assert( (parentNode->right - parentNode->left) > 1 );
-		assert( (parentNode->up    - parentNode->down) > 1 );
-
-		midX = (parentNode->right + parentNode->left) / 2;
-		midY = (parentNode->up    + parentNode->down) / 2;
+		upperRight = upperLeft = lowerLeft = lowerRight = nullptr;
 	}
 };
 
@@ -43,8 +36,13 @@ private:
 	Node *rootNode;
 	unsigned int numNodes;
 
-	void AddParticle(uQuadInt x, uQuadInt y);
+	unsigned int distribution[0x10];
+
+	bitmask4 GetQuadrant(Node* node, uQuadInt x, uQuadInt y);
+	Node* CreateChild(Node* parentNode, bitmask4 quadrant);
 	
 public:
-	QuadTree(uQuadInt width, uQuadInt height);
+	QuadTree(uQuadInt size);
+
+	void AddParticle(uQuadInt x, uQuadInt y);
 };
