@@ -10,7 +10,7 @@
 typedef unsigned char bitmask4;
 typedef unsigned short uQuadInt;
 
-class Node
+struct Node
 {
 	uQuadInt left, right, up, down;
 	uQuadInt midX, midY;
@@ -18,14 +18,22 @@ class Node
 
 	Node *upperRight, *upperLeft, *lowerLeft, *lowerRight;
 
-public:
 	Node(uQuadInt l, uQuadInt r, uQuadInt u, uQuadInt d) : left(l), right(r), up(u), down(d), mask(0)
 	{
 		assert(left < right);
 		assert(down < up);
 
 		midX = (right + left) / 2;
-		midY = (down + up) / 2;
+		midY = (down  + up)   / 2;
+	}
+
+	Node(Node* parentNode)
+	{
+		assert( (parentNode->right - parentNode->left) > 1 );
+		assert( (parentNode->up    - parentNode->down) > 1 );
+
+		midX = (parentNode->right + parentNode->left) / 2;
+		midY = (parentNode->up    + parentNode->down) / 2;
 	}
 };
 
