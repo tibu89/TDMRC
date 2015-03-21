@@ -2,6 +2,8 @@
 #include "stdafx.h"
 #include "QuadTree.h"
 
+#include <iostream>
+
 
 size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 {
@@ -27,6 +29,10 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 
 		quadTree->AddParticle(x, y);
 	}
+
+    //std::cout<<quadTree->GetNumNodes()<<std::endl;
+
+	delete quadTree;
 
 	return in_size;
 }

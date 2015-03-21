@@ -1,4 +1,7 @@
 #include "ElementalDust.h"
+#include <vector>
+#include <algorithm>
+#include <iostream>
 
 ElementalDust::ElementalDust()
 {
@@ -18,6 +21,16 @@ void ElementalDust::clear()
 
 	partiles_prt = NULL;
 	nr_particles_int = 0;
+}
+
+bool particleCompare( particle &a, particle &b)
+{
+    if(a.y == b.y)
+    {
+        return a.x < b.x;
+    }
+
+    return a.y < b.y;
 }
 
 void ElementalDust::sortParticles()
@@ -47,6 +60,30 @@ void ElementalDust::sortParticles()
 			}
 		}
 		*/
+
+    std::vector<particle> particleVector(partiles_prt, partiles_prt + nr_particles_int);
+
+    std::sort(particleVector.begin(), particleVector.end(), particleCompare);
+
+    unsigned int numRepeats = 0;
+	unsigned int maxNumRepeats = 0;
+
+    /*for(unsigned int i = 0; i < particleVector.size() - 1; i++)
+    {
+		if(particleVector[i].x.bits == particleVector[i + 1].x.bits && particleVector[i].y.bits == particleVector[i + 1].y.bits)
+        {
+            numRepeats++;
+        }
+		else
+		{
+			if(maxNumRepeats < numRepeats) maxNumRepeats = numRepeats;
+			numRepeats = 0;
+		}
+    }
+
+	if(maxNumRepeats < numRepeats) maxNumRepeats = numRepeats;
+
+	std::cout<<"Max repeats: "<<maxNumRepeats<<std::endl;*/
 }
 
 void ElementalDust::import(KImage *import, float multiplicator)

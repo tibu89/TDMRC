@@ -92,13 +92,26 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 		if(*nextNode == nullptr)
 		{
 			*nextNode = CreateChild(currentNode, quad);
-
-			assert(distribution[currentNode->mask] >= 0);
+            assert(distribution[currentNode->mask] > 0);
 			distribution[currentNode->mask]--;
 			currentNode->mask |= quad;
 			distribution[currentNode->mask]++;
+            distribution[0]++;
 		}
 
 		currentNode = *nextNode;
 	}
+}
+
+unsigned int QuadTree::GetNumNodes()
+{
+    unsigned int s = 0;
+
+	//only nodes with at least a bit in their bitmask count
+    for(unsigned int i = 1; i < 16; i++)
+    {
+        s += distribution[i];
+    }
+
+    return s;
 }

@@ -28,6 +28,14 @@ struct Node
 
 		upperRight = upperLeft = lowerLeft = lowerRight = nullptr;
 	}
+
+	~Node()
+	{
+		if(upperRight != nullptr) delete upperRight;
+		if(upperLeft  != nullptr) delete  upperLeft;
+		if(lowerRight != nullptr) delete lowerRight;
+		if(lowerLeft  != nullptr) delete  lowerLeft;
+	}
 };
 
 class QuadTree
@@ -43,6 +51,8 @@ private:
 	
 public:
 	QuadTree(uQuadInt size);
+	~QuadTree() {delete rootNode;}
 
 	void AddParticle(uQuadInt x, uQuadInt y);
+    unsigned int GetNumNodes();
 };
