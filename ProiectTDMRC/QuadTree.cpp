@@ -1,5 +1,7 @@
 #include "QuadTree.h"
 
+#include <vector>
+
 bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
 {
 	if(x < node->midX)
@@ -63,6 +65,16 @@ QuadTree::QuadTree(uQuadInt size)
 	distribution[0] = 1;
 }
 
+QuadTree::QuadTree()
+{
+    numNodes = 0;
+
+    for(unsigned int i = 0; i < 0x10; i++)
+    {
+        distribution[i] = 0;
+    }
+}
+
 void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 {
 	Node* currentNode = rootNode;
@@ -92,15 +104,21 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 		if(*nextNode == nullptr)
 		{
 			*nextNode = CreateChild(currentNode, quad);
-            assert(distribution[currentNode->mask] > 0);
-			distribution[currentNode->mask]--;
-			currentNode->mask |= quad;
-			distribution[currentNode->mask]++;
+            assert(distribution[currentNode->data.mask] > 0);
+			distribution[currentNode->data.mask]--;
+			currentNode->data.mask |= quad;
+			distribution[currentNode->data.mask]++;
             distribution[0]++;
 		}
 
 		currentNode = *nextNode;
 	}
+
+    //currently the code doesn't handle more than 15 identical particles, will extend in future (maybe)
+    assert(currentNode->data.numOccurences < 0x0F);
+    distribution[currentNode->data.numOccurences]--;
+    currentNode->data.numOccurences++;
+    distribution[currentNode->data.numOccurences]++;
 }
 
 unsigned int QuadTree::GetNumNodes()
@@ -108,7 +126,6 @@ unsigned int QuadTree::GetNumNodes()
     unsigned int s = 0;
 
 	//only nodes with at least a bit in their bitmask count
-    for(unsigned int i = 1; i < 16; i++)
     {
         s += distribution[i];
     }

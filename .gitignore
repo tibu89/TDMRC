@@ -238,3 +238,8 @@ FakesAssemblies/
 
 # Visual Studio 6 workspace options file
 *.opt
+
+# Proiect TDMRC
+*.edp
+*.edpc
+*.tif
