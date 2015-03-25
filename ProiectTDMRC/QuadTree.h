@@ -64,7 +64,7 @@ private:
 	bool IsLeaf(Node* node);
 
     void Serialize(std::stringbuf &buffer);
-    void Deserialize(std::stringbuf &buffer);
+    void Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
 	
 public:
     QuadTree();
@@ -77,5 +77,5 @@ public:
     void WriteToStream(std::ostream &outStream);
     size_t WriteToBuffer(void **out);
 
-    void ReadFromBuffer(void *in, size_t inSize);
+    size_t ReadFromBuffer(void *in, size_t inSize, void **out);
 };

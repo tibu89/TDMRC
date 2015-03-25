@@ -65,6 +65,8 @@ void ElementalDust::sortParticles()
 
     std::sort(particleVector.begin(), particleVector.end(), particleCompare);
 
+	memcpy(partiles_prt, particleVector.data(), particleVector.size() * sizeof(particle));
+
     unsigned int numRepeats = 0;
 	unsigned int maxNumRepeats = 0;
 

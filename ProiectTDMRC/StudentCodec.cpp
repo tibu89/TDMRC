@@ -44,11 +44,11 @@ size_t StudentCodec::decompress(void *in, size_t in_size, void **out)
 
 	QuadTree* quadTree = new QuadTree();
 
-	quadTree->ReadFromBuffer(in, in_size);
+	size_t outSize = quadTree->ReadFromBuffer(in, in_size, out);
 
 	std::cout<<quadTree->GetNumNodes()<<std::endl;
 
-	delete quadTree;
+	//delete quadTree;
 
-	return in_size;
+	return outSize;
 }

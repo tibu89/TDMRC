@@ -192,11 +192,11 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     std::cout<<outString.size()<<std::endl;
 }
 
-void QuadTree::Deserialize(std::stringbuf &buffer)
+void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 {
     InfoHeader header;
 
-    buffer.sgetn((char*)(&header), sizeof(InfoHeader));
+    inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
 
 	std::vector<bitmask4> bitmaskVector;
 
@@ -204,14 +204,14 @@ void QuadTree::Deserialize(std::stringbuf &buffer)
 
 	for(unsigned int i = 0; i < numPairs; i++)
 	{
-		unsigned char currentByte = buffer.sbumpc();
+		unsigned char currentByte = inBuffer.sbumpc();
 		bitmaskVector.push_back(currentByte & 0xF);
 		bitmaskVector.push_back(currentByte >> 4);
 	}
 
 	if(header.numNodes % 2 != 0)
 	{
-		unsigned char lastByte = buffer.sbumpc();
+		unsigned char lastByte = inBuffer.sbumpc();
 		bitmaskVector.push_back(lastByte);
 
 		assert(lastByte < 0x10);
@@ -229,6 +229,8 @@ void QuadTree::Deserialize(std::stringbuf &buffer)
 	unsigned int i = 0;
 	bool stopAddingNodes = false;
 
+	char buffer[4];
+
 	while(!nodeQueue.empty())
 	{
 		assert(i < header.numNodes);
@@ -240,6 +242,18 @@ void QuadTree::Deserialize(std::stringbuf &buffer)
 
 		if(stopAddingNodes || (stopAddingNodes = IsLeaf(currentNode)))
 		{
+			assert(currentNode->left == currentNode->midX);
+
+			buffer[0] = (char)(currentNode->left >> 8);
+			buffer[1] = (char)currentNode->left;
+			buffer[2] = (char)(currentNode->down >> 8);
+			buffer[3] = (char)currentNode->down;
+
+			for(unsigned int j = 0; j < currentNode->data.numOccurences; j++)
+			{
+				outBuffer.sputn(buffer, sizeof(buffer));
+			}
+
 			continue;
 		}
 
@@ -292,9 +306,19 @@ size_t QuadTree::WriteToBuffer(void **out)
     return outSize;
 }
 
-void QuadTree::ReadFromBuffer(void *in, size_t inSize)
+size_t QuadTree::ReadFromBuffer(void *in, size_t inSize, void **out)
 {
-    std::stringbuf buffer(std::string((char*)in, inSize));
+    std::stringbuf inBuffer(std::string((char*)in, inSize));
+	std::stringbuf outBuffer;
 
-    Deserialize(buffer);
+    Deserialize(inBuffer, outBuffer);
+
+	size_t outSize = outBuffer.str().size();
+
+	std::cout<<"deserialized buffer size: "<<outSize<<std::endl;
+
+	*out = new unsigned char[outSize];
+	memcpy(*out, outBuffer.str().c_str(), outSize);
+
+	return outSize;
 }
