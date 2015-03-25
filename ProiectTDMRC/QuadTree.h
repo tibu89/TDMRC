@@ -61,6 +61,8 @@ private:
 	bitmask4 GetQuadrant(Node* node, uQuadInt x, uQuadInt y);
 	Node* CreateChild(Node* parentNode, bitmask4 quadrant);
 
+	bool IsLeaf(Node* node);
+
     void Serialize(std::stringbuf &buffer);
     void Deserialize(std::stringbuf &buffer);
 	

@@ -1,6 +1,7 @@
 #include "QuadTree.h"
 
 #include <vector>
+#include <queue>
 
 bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
 {
@@ -30,6 +31,7 @@ bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
 
 Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 {
+	numNodes++;
 	switch(quadrant)
 	{
 	case LOWER_LEFT:
@@ -48,14 +50,13 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 		assert(false);
 		break;
 	}
-
+	numNodes--; //false alarm;
 	return nullptr;
 }
 
-QuadTree::QuadTree(uQuadInt size)
+QuadTree::QuadTree(uQuadInt size) : numNodes(1)
 {
 	rootNode = new Node(0, size, size, 0);
-	numNodes = 1;
 
 	for(unsigned int i = 1; i < 0x10; i++)
 	{
@@ -65,14 +66,17 @@ QuadTree::QuadTree(uQuadInt size)
 	distribution[0] = 1;
 }
 
-QuadTree::QuadTree()
+QuadTree::QuadTree() : numNodes(0), rootNode(nullptr)
 {
-    numNodes = 0;
-
-    for(unsigned int i = 0; i < 0x10; i++)
+	for(unsigned int i = 0; i < 0x10; i++)
     {
         distribution[i] = 0;
     }
+}
+
+bool QuadTree::IsLeaf(Node* node)
+{
+	return (node->right - node->left == 1);
 }
 
 void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
@@ -123,14 +127,7 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 
 unsigned int QuadTree::GetNumNodes()
 {
-    unsigned int s = 0;
-
-	for(unsigned int i = 0; i < 16; i++)
-    {
-        s += distribution[i];
-    }
-
-    return s;
+    return numNodes;
 }
 
 void QuadTree::Serialize(std::stringbuf &buffer)
@@ -201,9 +198,73 @@ void QuadTree::Deserialize(std::stringbuf &buffer)
 
     buffer.sgetn((char*)(&header), sizeof(InfoHeader));
 
-    rootNode = new Node(0, header.size, header.size, 0);
+	std::vector<bitmask4> bitmaskVector;
 
+	unsigned int numPairs = header.numNodes / 2;
+	Node nodeBuffer[header.numNodes];
 
+	for(unsigned int i = 0; i < numPairs; i++)
+	{
+		unsigned char currentByte = buffer.sbumpc();
+		bitmaskVector.push_back(currentByte & 0xF);
+		bitmaskVector.push_back(currentByte >> 4);
+	}
+
+	if(header.numNodes % 2 != 0)
+	{
+		unsigned char lastByte = buffer.sbumpc();
+		bitmaskVector.push_back(lastByte);
+
+		assert(lastByte < 0x10);
+	}
+
+	//delete current data, if any
+    if(rootNode != nullptr) delete rootNode;
+
+	rootNode = new Node(0, header.size, header.size, 0);
+	numNodes = 1;
+
+	std::queue<Node*> nodeQueue;
+
+	nodeQueue.push(rootNode);
+	unsigned int i = 0;
+	bool stopAddingNodes = false;
+
+	while(!nodeQueue.empty())
+	{
+		assert(i < header.numNodes);
+
+		Node* currentNode = nodeQueue.front();
+		nodeQueue.pop();
+
+		currentNode->data.mask = bitmaskVector[i++];
+
+		if(stopAddingNodes || (stopAddingNodes = IsLeaf(currentNode)))
+		{
+			continue;
+		}
+
+		if(currentNode->data.mask & LOWER_LEFT)
+		{
+			currentNode->lowerLeft = CreateChild(currentNode, LOWER_LEFT);
+			nodeQueue.push(currentNode->lowerLeft);
+		}
+		if(currentNode->data.mask & LOWER_RIGHT)
+		{
+			currentNode->lowerRight = CreateChild(currentNode, LOWER_RIGHT);
+			nodeQueue.push(currentNode->lowerRight);
+		}
+		if(currentNode->data.mask & UPPER_LEFT)
+		{
+			currentNode->upperLeft = CreateChild(currentNode, UPPER_LEFT);
+			nodeQueue.push(currentNode->upperLeft);
+		}
+		if(currentNode->data.mask & UPPER_RIGHT)
+		{
+			currentNode->upperRight = CreateChild(currentNode, UPPER_RIGHT);
+			nodeQueue.push(currentNode->upperRight);
+		}
+	}
 }
 
 void QuadTree::WriteToStream(std::ostream &outStream)
@@ -234,9 +295,6 @@ size_t QuadTree::WriteToBuffer(void **out)
 
 void QuadTree::ReadFromBuffer(void *in, size_t inSize)
 {
-    //delete current data, if any
-    if(rootNode != nullptr) delete rootNode;
-
     std::stringbuf buffer(std::string((char*)in, inSize));
 
     Deserialize(buffer);

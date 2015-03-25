@@ -42,5 +42,13 @@ size_t StudentCodec::decompress(void *in, size_t in_size, void **out)
 	*out = new unsigned char[in_size];
 	memcpy(*out, in, in_size);
 
+	QuadTree* quadTree = new QuadTree();
+
+	quadTree->ReadFromBuffer(in, in_size);
+
+	std::cout<<quadTree->GetNumNodes()<<std::endl;
+
+	delete quadTree;
+
 	return in_size;
 }
