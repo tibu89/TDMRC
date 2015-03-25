@@ -201,7 +201,6 @@ void QuadTree::Deserialize(std::stringbuf &buffer)
 	std::vector<bitmask4> bitmaskVector;
 
 	unsigned int numPairs = header.numNodes / 2;
-	Node nodeBuffer[header.numNodes];
 
 	for(unsigned int i = 0; i < numPairs; i++)
 	{
