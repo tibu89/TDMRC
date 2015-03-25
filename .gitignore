@@ -1,3 +1,8 @@
+# Proiect TDMRC
+*.edp
+*.edpc
+*.tif
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
@@ -238,8 +243,3 @@ FakesAssemblies/
 
 # Visual Studio 6 workspace options file
 *.opt
-
-# Proiect TDMRC
-*.edp
-*.edpc
-*.tif

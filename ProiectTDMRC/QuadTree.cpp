@@ -125,10 +125,119 @@ unsigned int QuadTree::GetNumNodes()
 {
     unsigned int s = 0;
 
-	//only nodes with at least a bit in their bitmask count
+	for(unsigned int i = 0; i < 16; i++)
     {
         s += distribution[i];
     }
 
     return s;
+}
+
+void QuadTree::Serialize(std::stringbuf &buffer)
+{
+    std::vector<Node*> breadthFirstNodes;
+
+    InfoHeader header;
+
+    header.numNodes = GetNumNodes();
+    header.size = rootNode->right;
+
+    buffer.sputn((char*)(&header), sizeof(InfoHeader));
+
+    breadthFirstNodes.push_back(rootNode);
+
+    for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
+    {
+        Node* currentNode = breadthFirstNodes[i];
+        if(currentNode->data.mask == 0)
+        {
+            continue;
+        }
+
+        if(currentNode->lowerLeft != nullptr)
+        {
+            breadthFirstNodes.push_back(currentNode->lowerLeft);
+        }
+        if(currentNode->lowerRight != nullptr)
+        {
+            breadthFirstNodes.push_back(currentNode->lowerRight);
+        }
+        if(currentNode->upperLeft != nullptr)
+        {
+            breadthFirstNodes.push_back(currentNode->upperLeft);
+        }
+        if(currentNode->upperRight != nullptr)
+        {
+            breadthFirstNodes.push_back(currentNode->upperRight);
+        }
+    }
+
+    std::cout<<breadthFirstNodes.size()<<std::endl;
+
+    unsigned int numPairs = breadthFirstNodes.size() / 2;
+
+    for(unsigned int i = 0; i < numPairs; i++)
+    {
+        unsigned char byte = 0;
+        byte |= breadthFirstNodes[2 * i]->data.mask;
+        byte |= (breadthFirstNodes[2 * i + 1]->data.mask)<<4;
+
+        buffer.sputc(byte);
+    }
+
+    //add last element for uneven number of nodes
+    if(breadthFirstNodes.size() % 2 != 0)
+    {
+        buffer.sputc(breadthFirstNodes[2 * numPairs]->data.mask);
+    }
+
+    std::string outString = buffer.str();
+    std::cout<<outString.size()<<std::endl;
+}
+
+void QuadTree::Deserialize(std::stringbuf &buffer)
+{
+    InfoHeader header;
+
+    buffer.sgetn((char*)(&header), sizeof(InfoHeader));
+
+    rootNode = new Node(0, header.size, header.size, 0);
+
+
+}
+
+void QuadTree::WriteToStream(std::ostream &outStream)
+{
+    std::stringbuf buffer;
+
+    Serialize(buffer);
+
+    std::string outString = buffer.str();
+    outStream.write(outString.c_str(), outString.size());
+}
+
+size_t QuadTree::WriteToBuffer(void **out)
+{
+    std::stringbuf buffer;
+
+    Serialize(buffer);
+
+    std::string outString = buffer.str();
+    size_t outSize = outString.size();
+
+    *out = new unsigned char[outSize];
+
+    memcpy(*out, outString.c_str(), outSize);
+
+    return outSize;
+}
+
+void QuadTree::ReadFromBuffer(void *in, size_t inSize)
+{
+    //delete current data, if any
+    if(rootNode != nullptr) delete rootNode;
+
+    std::stringbuf buffer(std::string((char*)in, inSize));
+
+    Deserialize(buffer);
 }
