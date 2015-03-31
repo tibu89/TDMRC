@@ -84,6 +84,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ArithmeticEncoder.h" />
     <ClInclude Include="DetectLeaks.h" />
     <ClInclude Include="Direct_Access_Image.h" />
     <ClInclude Include="fixed_float.h" />
