@@ -192,8 +192,6 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         }
     }
 
-    std::cout<<breadthFirstNodes.size()<<std::endl;
-
     unsigned int numPairs = breadthFirstNodes.size() / 2;
 
     for(unsigned int i = 0; i < numPairs; i++)
@@ -210,9 +208,6 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     {
         buffer.sputc(breadthFirstNodes[2 * numPairs]->data.mask);
     }
-
-    std::string outString = buffer.str();
-    std::cout<<outString.size()<<std::endl;
 }
 
 void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
@@ -339,8 +334,6 @@ size_t QuadTree::ReadFromBuffer(void *in, size_t inSize, void **out)
     Deserialize(inBuffer, outBuffer);
 
 	size_t outSize = outBuffer.str().size();
-
-	std::cout<<"deserialized buffer size: "<<outSize<<std::endl;
 
 	*out = new unsigned char[outSize];
 	memcpy(*out, outBuffer.str().c_str(), outSize);

@@ -27,8 +27,6 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 		quadTree->AddParticle(x, y);
 	}
 
-    std::cout<<quadTree->GetNumNodes()<<std::endl;
-
     size_t outSize = quadTree->WriteToBuffer(out);
 
 	delete quadTree;

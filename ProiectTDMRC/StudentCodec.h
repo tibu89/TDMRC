@@ -1,5 +1,3 @@
-#include "DetectLeaks.h"
-
 class StudentCodec
 {
 public:

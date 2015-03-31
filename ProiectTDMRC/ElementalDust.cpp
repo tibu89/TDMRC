@@ -1,7 +1,5 @@
 #include "ElementalDust.h"
-#include <vector>
-#include <algorithm>
-#include <iostream>
+#include "QuickSort.h"
 
 ElementalDust::ElementalDust()
 {
@@ -23,69 +21,25 @@ void ElementalDust::clear()
 	nr_particles_int = 0;
 }
 
-bool particleCompare( particle &a, particle &b)
+struct compare
 {
-    if(a.y == b.y)
-    {
-        return a.x < b.x;
-    }
-
-    return a.y < b.y;
-}
+	bool operator() (particle &a, particle &b)
+	{
+		if ( a.x != b.x )
+		{
+			return a.x < b.x;
+		}
+		else
+		{
+			return a.y < b.y;
+		}
+		return a.x < b.x;
+	}
+};
 
 void ElementalDust::sortParticles()
 {
-	/*
-	//TO DO: use quicksort
-	particle particle_tmp;
-	for(int i=0; i<nr_particles_int; i++)
-		for(int j=i; j<nr_particles_int; j++)
-		{
-			if (partiles_prt[j].y > partiles_prt[i].y)
-			{
-				particle_tmp = partiles_prt[i];
-				partiles_prt[i] = partiles_prt[j];
-				partiles_prt[j] = particle_tmp;
-			}
-		}
-
-	for(int i=0; i<nr_particles_int; i++)
-		for(int j=i; j<nr_particles_int; j++)
-		{
-			if (partiles_prt[j].x > partiles_prt[i].x)
-			{
-				particle_tmp = partiles_prt[i];
-				partiles_prt[i] = partiles_prt[j];
-				partiles_prt[j] = particle_tmp;
-			}
-		}
-		*/
-
-    std::vector<particle> particleVector(partiles_prt, partiles_prt + nr_particles_int);
-
-    std::sort(particleVector.begin(), particleVector.end(), particleCompare);
-
-	memcpy(partiles_prt, particleVector.data(), particleVector.size() * sizeof(particle));
-
-    unsigned int numRepeats = 0;
-	unsigned int maxNumRepeats = 0;
-
-    /*for(unsigned int i = 0; i < particleVector.size() - 1; i++)
-    {
-		if(particleVector[i].x.bits == particleVector[i + 1].x.bits && particleVector[i].y.bits == particleVector[i + 1].y.bits)
-        {
-            numRepeats++;
-        }
-		else
-		{
-			if(maxNumRepeats < numRepeats) maxNumRepeats = numRepeats;
-			numRepeats = 0;
-		}
-    }
-
-	if(maxNumRepeats < numRepeats) maxNumRepeats = numRepeats;
-
-	std::cout<<"Max repeats: "<<maxNumRepeats<<std::endl;*/
+	QuickSort<particle, compare>::quicksort(partiles_prt, nr_particles_int);
 }
 
 void ElementalDust::import(KImage *import, float multiplicator)
@@ -118,7 +72,6 @@ void ElementalDust::import(KImage *import, float multiplicator)
 
 	unsigned int index=0;
 	particle crt_particle;
-	unsigned char integer_uchar;
 
 	for (int j=0; j < height; j++)
 		for (int i=0; i < width; i++)
@@ -127,8 +80,8 @@ void ElementalDust::import(KImage *import, float multiplicator)
 
 			for (unsigned int k=0; k<crt_color_uint ; k++)
 			{
-				crt_particle.x = fixed_float(i, (unsigned char)rand()%255);
-				crt_particle.y = fixed_float(j, (unsigned char)rand()%255);
+				crt_particle.x = fixed_float(i + ((float)(rand()%1000))/1000);
+				crt_particle.y = fixed_float(j + ((float)(rand()%1000))/1000);
 
 				partiles_prt[index] = crt_particle;
 
@@ -137,8 +90,6 @@ void ElementalDust::import(KImage *import, float multiplicator)
 		}
 
 	import ->EndDirectAccess();
-
-	sortParticles();
 }
 
 void ElementalDust::import(char *file_name)
@@ -170,8 +121,23 @@ void ElementalDust::import(char *file_name)
 	}
 
 	fclose (fin);
+}
 
-	sortParticles();
+void ElementalDust::import(void *file_contents, size_t size)
+{
+	clear();
+
+	nr_particles_int = size/4;
+	partiles_prt = new particle[nr_particles_int];
+
+	unsigned char *contents_uchar = (unsigned char*)file_contents;
+
+	//TO DO: optimize: use buffer
+	for(int i=0; i<this->nr_particles_int; i++)
+	{
+		partiles_prt[i].x = fixed_float(contents_uchar[i*4 + 0], contents_uchar[i*4 + 1]);
+		partiles_prt[i].y = fixed_float(contents_uchar[i*4 + 2], contents_uchar[i*4 + 3]);
+	}
 }
 
 void ElementalDust::SaveAs(char *file_name)
@@ -183,10 +149,10 @@ void ElementalDust::SaveAs(char *file_name)
 	//TO DO: optimize: use buffer
 	for(int i=0; i<this->nr_particles_int; i++)
 	{
-		buffer[0] = (unsigned char)(partiles_prt[i].x.bits>>8);
-		buffer[1] = (unsigned char)partiles_prt[i].x.bits;
-		buffer[2] = (unsigned char)(partiles_prt[i].y.bits>>8);
-		buffer[3] = (unsigned char)partiles_prt[i].y.bits;
+		buffer[0] = partiles_prt[i].x.getIntegerBits();
+		buffer[1] = partiles_prt[i].x.getFractionalBits();
+		buffer[2] = partiles_prt[i].y.getIntegerBits();
+		buffer[3] = partiles_prt[i].y.getFractionalBits();
 		fwrite(buffer, sizeof(unsigned short), 2, fout);
 	}
 
@@ -209,8 +175,9 @@ void ElementalDust::SaveAs(KImage *import, float multiplicator)
 	unsigned char crt_color_uchar;
 	for(int i=0; i<this->nr_particles_int; i++)
 	{
-		x = (int)(partiles_prt[i].x * multiplicator);
-		y = (int)(partiles_prt[i].y * multiplicator);
+		float x_f = partiles_prt[i].x.getFloat();
+		x = (int)(partiles_prt[i].x.getFloat() * multiplicator);
+		y = (int)(partiles_prt[i].y.getFloat() * multiplicator);
 
 		if(x>=width || y>=height)
 			continue;
@@ -240,4 +207,21 @@ ElementalDust& ElementalDust::operator= (ElementalDust b_ed)
 	}
 	
 	return *this;
+}
+
+bool ElementalDust::operator==(ElementalDust &b_flt)
+{
+	if(nr_particles_int != b_flt.nr_particles_int)
+		return false;
+
+	for( int i=0; i<nr_particles_int; i++)
+		if((partiles_prt[i].x != b_flt.partiles_prt[i].x) || (partiles_prt[i].y != b_flt.partiles_prt[i].y))
+			return false;
+
+	return true;
+}
+
+bool ElementalDust::operator!=(ElementalDust &b_flt)
+{
+	return !(*this == b_flt);
 }

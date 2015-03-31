@@ -34,7 +34,6 @@
 
 
 #include	"simplexnoise1234.h"
-#include "DetectLeaks.h"
 
 #define FASTFLOOR(x) ( ((x)>0) ? ((int)x) : (((int)x)-1) )
 
