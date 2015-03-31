@@ -1,4 +1,5 @@
 #include "QuadTree.h"
+#include "ArithmeticEncoder.h"
 
 #include <vector>
 #include <queue>
@@ -52,28 +53,6 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 
 	return nullptr;
 }
-
-/*void QuadTree::CreateChild(Node* parentNode, Node* childNode, bitmask4 quadrant)
-{
-    switch(quadrant)
-    {
-    case LOWER_LEFT:
-        childNode->SetParams(parentNode->left, parentNode->midX, parentNode->midY, parentNode->down);
-        break;
-    case LOWER_RIGHT:
-        childNode->SetParams(parentNode->midX, parentNode->right, parentNode->midY, parentNode->down);
-        break;
-    case UPPER_RIGHT:
-        childNode->SetParams(parentNode->midX, parentNode->right, parentNode->up, parentNode->midY);
-        break;
-    case UPPER_LEFT:
-        childNode->SetParams(parentNode->left, parentNode->midX, parentNode->up, parentNode->midY);
-        break;
-    default:
-        assert(false);
-        break;
-    }
-}*/
 
 QuadTree::QuadTree(uQuadInt size) : numNodes(1)
 {
@@ -139,7 +118,7 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 		}
 
 		currentNode = *nextNode;
-	}
+    }
 
     //currently the code doesn't handle more than 15 identical particles, will extend in future (maybe)
     assert(currentNode->data.numOccurences < 0x0F);
@@ -192,6 +171,18 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         }
     }
 
+    ArithmeticEncoder<unsigned long long> encoder;
+    BitBuffer bitBuffer;
+    encoder.SetFrequencyFromDistribution(std::vector<unsigned int>(distribution, distribution + 16));
+
+    for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
+    {
+        encoder.EncodeValue(breadthFirstNodes[i]->data.mask, bitBuffer);
+    }
+
+    std::cout<<"size with per 4 bits encoding: "<<bitBuffer.GetBuffer().str().size()<<std::endl;
+
+    /////////////////////// no Arithmetic compression part
     std::cout<<breadthFirstNodes.size()<<std::endl;
 
     unsigned int numPairs = breadthFirstNodes.size() / 2;
@@ -212,7 +203,7 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     }
 
     std::string outString = buffer.str();
-    std::cout<<outString.size()<<std::endl;
+    std::cout<<"size without arithmetic encoding: "<<outString.size()<<std::endl;
 }
 
 void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
@@ -238,18 +229,8 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
         bitmaskVector.push_back(lastByte);
 
         assert(lastByte < 0x10);
-    }/*
-
-    std::vector<Node> nodesVector;
-    Node *newNode = new Node();
-    Node *currentNode;
-
-    for(std::vector<bitmask4>::iterator it = bitmaskVector.begin(); it != bitmaskVector.end(); it++)
-    {
-        
     }
-    
-    */
+
 	std::queue<Node*> nodeQueue;
 
 	nodeQueue.push(new Node(0, header.size, header.size, 0));
