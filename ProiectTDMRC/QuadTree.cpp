@@ -321,8 +321,6 @@ size_t QuadTree::ReadFromBuffer(void *in, size_t inSize, void **out)
 
 	size_t outSize = outBuffer.str().size();
 
-	std::cout<<"deserialized buffer size: "<<outSize<<std::endl;
-
 	*out = new unsigned char[outSize];
 	memcpy(*out, outBuffer.str().c_str(), outSize);
 

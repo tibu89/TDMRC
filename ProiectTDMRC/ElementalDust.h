@@ -1,4 +1,3 @@
-#include "DetectLeaks.h"
 #include "Direct_Access_Image.h"
 #include "stdafx.h"
 #include "particle.h"
@@ -17,14 +16,20 @@ public:
 
 	void import(char *file_name);
 
+	void import(void *file_contents, size_t size);
+
 	void SaveAs(char *file_name);
 
 	void SaveAs(KImage *import, float multiplicator);
 
 	ElementalDust& operator= (ElementalDust b_flt);
 
-private:
+	bool operator==(ElementalDust &b_flt);
+
+	bool operator!=(ElementalDust &b_flt);
+
 	void sortParticles();
 
+private:
 	void clear();
 };
