@@ -10,18 +10,32 @@ private:
     std::stringbuf buffer;
 
 public:
-    BitBuffer() : currentChar(0), currentNum(0){}
+    BitBuffer() : currentChar(0), currentNum(0)
+    {
+        buffer.pubseekpos(0, std::ios_base::in);
+    }
+    
+    BitBuffer(std::string &inString) : currentChar(0), currentNum(0)
+    {
+        buffer.sputn(inString.c_str(), inString.size());
+        buffer.pubseekpos(0, std::ios_base::out);
 
-    void Flush(){ buffer.sputc(currentChar);}
+        currentChar = buffer.sbumpc();
+    }
 
-    std::stringbuf& GetBuffer(){return buffer;}
+    void Flush()
+    {
+        buffer.sputc(currentChar);
+        currentChar &= 0;
+    }
+
+    std::stringbuf& GetBuffer(){return buffer;}    
 
     void PutBit(unsigned short bit)
     {
         assert(bit < 2);
 
-        currentChar <<= 1;
-        currentChar |= bit;
+        currentChar |= (bit << currentNum);
         currentNum++;
 
         if(currentNum == 8)
@@ -29,6 +43,19 @@ public:
             currentNum = 0;
             Flush();
         }
+    }
+
+    bool GetBit()
+    {
+        currentNum++;
+
+        if(currentNum == 8)
+        {
+            currentNum = 0;
+            currentChar = buffer.sbumpc();
+        }
+
+        return (currentChar & (1<<(7 - currentNum))) != 0;
     }
 };
 
@@ -56,9 +83,6 @@ private:
     static const CodeValue THREE_FOURTHS= ONE_FOURTH * 3;
 
     std::vector<CodeValue> cumulativeFrequency;
-    CodeValue high;
-    CodeValue low;
-    CodeValue pendingBits;
 
     Probability GetProbability(unsigned char c)
     {
@@ -66,7 +90,21 @@ private:
         return prob;
     }
 
-    void OutputBit(unsigned short bit, BitBuffer &buffer)
+    Probability GetChar(CodeValue scaledValue, int &c)
+    {
+        for(unsigned int i = 0; i < cumulativeFrequency.size(); i++)
+        {
+            if(scaledValue < cumulativeFrequency[i+1])
+            {
+                c = i;
+                Probability p = {cumulativeFrequency[i], cumulativeFrequency[i+1], cumulativeFrequency.back()};
+                return p;
+            }
+        }
+        throw std::logic_error("scaledValue higher than cumulativeFrequency");
+    }
+
+    void OutputBit(unsigned short bit, CodeValue &pendingBits, BitBuffer &buffer)
     {
         buffer.PutBit(bit);
 
@@ -78,9 +116,12 @@ private:
         }    
     }
 
-public:
-    ArithmeticEncoder() : high(MAX_CODE), low(0), pendingBits(0) {}
+    CodeValue GetCount()
+    {
+        return cumulativeFrequency.back();
+    }
 
+public:
     void SetFrequencyFromDistribution(std::vector<unsigned int> &distribution)
     {
         cumulativeFrequency = std::vector<CodeValue>(distribution.size() + 1, 0);
@@ -96,40 +137,121 @@ public:
         }
     }
 
-    void EncodeValue(unsigned char value, BitBuffer &outBuffer)
+    void Encode(BitBuffer &outBuffer, std::stringbuf &inBuffer)
     {
-        CodeValue range = high - low + 1;
-        Probability prob = GetProbability(value);
-
-        high = low + (range * prob.upper) / prob.denominator - 1;
-        low  = low + (range * prob.lower) / prob.denominator;
-
-        for(;;)
+        CodeValue high = MAX_CODE;
+        CodeValue low = 0;
+        CodeValue pendingBits = 0;
+        
+        unsigned int numValues = inBuffer.str().size();
+        unsigned int i = 0;
+        for(; i < numValues; i++)
         {
-            if(high < ONE_HALF)
-            {
-                OutputBit(0, outBuffer);
-            }
-            else if(low >= ONE_HALF)
-            {
-                OutputBit(1, outBuffer);
-            }
-            else if(low >= ONE_FOURTH && high < THREE_FOURTHS)
-            {
-                pendingBits++;
-                low  -= ONE_FOURTH;
-                high -= ONE_FOURTH;
-            }
-            else
-            {
-                break;
-            }
+            assert(low < high);
+            assert(high <= MAX_CODE);
 
-            high <<= 1;
-            high++;
-            low <<= 1;
-            high &= MAX_CODE;
-            low  &= MAX_CODE;
+            unsigned char value = inBuffer.sbumpc();
+
+            CodeValue range = high - low + 1;
+            Probability prob = GetProbability(value);
+
+            high = low + (range * prob.upper / prob.denominator) - 1;
+            low  = low + (range * prob.lower / prob.denominator);
+
+            for(;;)
+            {
+                if(high < ONE_HALF)
+                {
+                    OutputBit(0, pendingBits, outBuffer);
+                }
+                else if(low >= ONE_HALF)
+                {
+                    OutputBit(1, pendingBits, outBuffer);
+                }
+                else if(low >= ONE_FOURTH && high < THREE_FOURTHS)
+                {
+                    pendingBits++;
+                    low  -= ONE_FOURTH;
+                    high -= ONE_FOURTH;
+                }
+                else
+                {
+                    break;
+                }
+
+                high <<= 1;
+                high++;
+                low <<= 1;
+                high &= MAX_CODE;
+                low  &= MAX_CODE;
+            }
+        }
+    }
+
+    void Decode(BitBuffer &inBuffer, std::stringbuf &outBuffer, unsigned int numValues)
+    {
+        CodeValue low = 0;
+        CodeValue high = MAX_CODE;
+        CodeValue pendingBits = 0;
+
+        CodeValue value = 0;
+
+        for(int i = 0; i < CODE_VALUE_BITS; i++)
+        {
+            value <<= 1;
+            value += inBuffer.GetBit();
+        }
+
+        CodeValue count = GetCount();
+
+        for(unsigned int i = 0; i < numValues; i++)
+        {
+            CodeValue range = high - low + 1;
+            CodeValue scaledValue = ((value - low + 1) * count - 1) / range;
+
+            assert(scaledValue <= count);
+            assert(low <= high);
+            assert(high <= MAX_CODE);
+
+            int c;
+            Probability prob = GetChar(scaledValue, c);
+
+            high = low + (range * prob.upper / prob.denominator) - 1;
+            low  = low + (range * prob.lower / prob.denominator);
+
+            outBuffer.sputc((unsigned char)c);
+
+            for(;;)
+            {
+                if(high < ONE_HALF)
+                {
+                    
+                }
+                else if(low >= ONE_HALF)
+                {
+                    value -= ONE_HALF;
+                    low   -= ONE_HALF;
+                    high  -= ONE_HALF;
+                }
+                else if(low >= ONE_FOURTH && high < THREE_FOURTHS)
+                {
+                    value -= ONE_FOURTH;
+                    low   -= ONE_FOURTH;
+                    high  -= ONE_FOURTH;
+                }
+                else
+                {
+                    break;
+                }
+
+                low  <<= 1;
+                high <<= 1;
+                high++;
+                value <<= 1;
+
+                bool ceplm = inBuffer.GetBit();
+                value += ceplm ? 1 : 0;
+            }
         }
     }
 };

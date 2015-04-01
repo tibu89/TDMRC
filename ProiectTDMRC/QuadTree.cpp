@@ -171,21 +171,9 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         }
     }
 
-    ArithmeticEncoder<unsigned long long> encoder;
-    BitBuffer bitBuffer;
-    encoder.SetFrequencyFromDistribution(std::vector<unsigned int>(distribution, distribution + 16));
-
-    for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
-    {
-        encoder.EncodeValue(breadthFirstNodes[i]->data.mask, bitBuffer);
-    }
-
-    std::cout<<"size with per 4 bits encoding: "<<bitBuffer.GetBuffer().str().size()<<std::endl;
-
-    /////////////////////// no Arithmetic compression part
-    std::cout<<breadthFirstNodes.size()<<std::endl;
-
     unsigned int numPairs = breadthFirstNodes.size() / 2;
+
+    std::vector<unsigned int> byteDistribution(0x100, 0);
 
     for(unsigned int i = 0; i < numPairs; i++)
     {
@@ -194,16 +182,35 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         byte |= (breadthFirstNodes[2 * i + 1]->data.mask)<<4;
 
         buffer.sputc(byte);
+        byteDistribution[byte]++;
     }
 
     //add last element for uneven number of nodes
     if(breadthFirstNodes.size() % 2 != 0)
     {
         buffer.sputc(breadthFirstNodes[2 * numPairs]->data.mask);
+        byteDistribution[breadthFirstNodes[2 * numPairs]->data.mask]++;
     }
 
     std::string outString = buffer.str();
     std::cout<<"size without arithmetic encoding: "<<outString.size()<<std::endl;
+
+    //arithmetic encoding
+    ArithmeticEncoder<unsigned long long> encoder;
+    BitBuffer bitBuffer;
+    encoder.SetFrequencyFromDistribution(byteDistribution);
+
+    buffer.pubseekoff(sizeof(InfoHeader), std::ios_base::beg);
+
+    encoder.Encode(bitBuffer, buffer);
+
+    std::cout<<"size with arithmetic encoding: "<<bitBuffer.GetBuffer().str().size()<<std::endl;
+
+    std::stringbuf decompBuffer;
+
+    encoder.Decode(bitBuffer, decompBuffer, outString.size());
+
+    std::cout<<"size after arithmetic decoding: "<<decompBuffer.str().size()<<std::endl;
 }
 
 void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
