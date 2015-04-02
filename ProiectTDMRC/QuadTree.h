@@ -4,10 +4,10 @@
 #include <iostream>
 #include <sstream>
 
-#define UPPER_RIGHT (1<<0)
-#define UPPER_LEFT  (1<<1)
-#define LOWER_LEFT  (1<<2)
-#define LOWER_RIGHT (1<<3)
+#define UPPER_RIGHT 1
+#define UPPER_LEFT  2
+#define LOWER_LEFT  4
+#define LOWER_RIGHT 8
 
 typedef unsigned char bitmask4;
 typedef unsigned short uQuadInt;

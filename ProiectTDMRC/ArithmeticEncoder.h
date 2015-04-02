@@ -17,7 +17,7 @@ public:
     
     BitBuffer(std::string &inString) : currentChar(0), currentNum(0)
     {
-        buffer.sputn(inString.c_str(), inString.size());
+        std::streamsize num = buffer.sputn(inString.c_str(), inString.size());
         buffer.pubseekpos(0, std::ios_base::out);
 
         currentChar = buffer.sbumpc();
@@ -25,8 +25,9 @@ public:
 
     void Flush()
     {
+        currentChar <<= currentNum;
         buffer.sputc(currentChar);
-        currentChar &= 0;
+        currentChar = 0;
     }
 
     std::stringbuf& GetBuffer(){return buffer;}    
@@ -34,8 +35,11 @@ public:
     void PutBit(unsigned short bit)
     {
         assert(bit < 2);
+        assert(currentNum < 8);
 
-        currentChar |= (bit << currentNum);
+        currentChar <<= 1;
+        currentChar += bit;
+
         currentNum++;
 
         if(currentNum == 8)
@@ -47,15 +51,13 @@ public:
 
     bool GetBit()
     {
-        currentNum++;
-
         if(currentNum == 8)
         {
             currentNum = 0;
             currentChar = buffer.sbumpc();
         }
 
-        return (currentChar & (1<<(7 - currentNum))) != 0;
+        return (currentChar & (1<<(7 - currentNum++))) != 0;
     }
 };
 
@@ -90,7 +92,7 @@ private:
         return prob;
     }
 
-    Probability GetChar(CodeValue scaledValue, int &c)
+    Probability GetChar(CodeValue scaledValue, unsigned char &c)
     {
         for(unsigned int i = 0; i < cumulativeFrequency.size(); i++)
         {
@@ -137,13 +139,12 @@ public:
         }
     }
 
-    void Encode(BitBuffer &outBuffer, std::stringbuf &inBuffer)
+    void Encode(BitBuffer &outBuffer, std::stringbuf &inBuffer, unsigned int numValues)
     {
         CodeValue high = MAX_CODE;
         CodeValue low = 0;
         CodeValue pendingBits = 0;
-        
-        unsigned int numValues = inBuffer.str().size();
+
         unsigned int i = 0;
         for(; i < numValues; i++)
         {
@@ -186,21 +187,43 @@ public:
                 low  &= MAX_CODE;
             }
         }
+
+        pendingBits++;
+        if(low < ONE_FOURTH)
+        {
+            OutputBit(0, pendingBits, outBuffer);
+        }
+        else
+        {
+            OutputBit(1, pendingBits, outBuffer);
+        }
+        assert(pendingBits == 0);
+
+        outBuffer.Flush();
     }
 
     void Decode(BitBuffer &inBuffer, std::stringbuf &outBuffer, unsigned int numValues)
     {
         CodeValue low = 0;
         CodeValue high = MAX_CODE;
-        CodeValue pendingBits = 0;
 
         CodeValue value = 0;
+
+        unsigned short bitCount = 0;
+        unsigned int byteCount = 0;
 
         for(int i = 0; i < CODE_VALUE_BITS; i++)
         {
             value <<= 1;
-            value += inBuffer.GetBit();
-        }
+            value += inBuffer.GetBit() ? 1 : 0;
+
+            bitCount++;
+            if(bitCount == 8)
+            {
+                bitCount = 0;
+                byteCount++;
+            }
+        }        
 
         CodeValue count = GetCount();
 
@@ -213,13 +236,13 @@ public:
             assert(low <= high);
             assert(high <= MAX_CODE);
 
-            int c;
+            unsigned char c;
             Probability prob = GetChar(scaledValue, c);
 
             high = low + (range * prob.upper / prob.denominator) - 1;
             low  = low + (range * prob.lower / prob.denominator);
 
-            outBuffer.sputc((unsigned char)c);
+            outBuffer.sputc(c);
 
             for(;;)
             {
@@ -248,10 +271,17 @@ public:
                 high <<= 1;
                 high++;
                 value <<= 1;
+                value += inBuffer.GetBit() ? 1 : 0;
 
-                bool ceplm = inBuffer.GetBit();
-                value += ceplm ? 1 : 0;
+                bitCount++;
+                if(bitCount == 8)
+                {
+                    bitCount = 0;
+                    byteCount++;
+                }
             }
         }
+
+        std::cout<<"decode bytes read: "<<byteCount<<std::endl;
     }
 };

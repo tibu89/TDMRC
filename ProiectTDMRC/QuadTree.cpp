@@ -202,13 +202,26 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     buffer.pubseekoff(sizeof(InfoHeader), std::ios_base::beg);
 
-    encoder.Encode(bitBuffer, buffer);
+    encoder.Encode(bitBuffer, buffer, outString.size() - sizeof(InfoHeader));
 
     std::cout<<"size with arithmetic encoding: "<<bitBuffer.GetBuffer().str().size()<<std::endl;
 
     std::stringbuf decompBuffer;
 
-    encoder.Decode(bitBuffer, decompBuffer, outString.size());
+    BitBuffer bitBuffer2(bitBuffer.GetBuffer().str());
+
+    encoder.Decode(bitBuffer2, decompBuffer, outString.size() - sizeof(InfoHeader));
+
+    buffer.pubseekoff(sizeof(InfoHeader), std::ios_base::beg);
+    decompBuffer.pubseekoff(0, std::ios_base::beg);
+
+    for(unsigned int i = 900000; i < decompBuffer.str().size(); i++)
+    {
+        if(buffer.sbumpc() != decompBuffer.sbumpc())
+        {
+            std::cout<<"difference at: "<<i<<std::endl;
+        }
+    }
 
     std::cout<<"size after arithmetic decoding: "<<decompBuffer.str().size()<<std::endl;
 }
