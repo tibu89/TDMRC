@@ -4,6 +4,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <list>
+
 #define UPPER_RIGHT 1
 #define UPPER_LEFT  2
 #define LOWER_LEFT  4
@@ -12,13 +14,21 @@
 typedef unsigned char bitmask4;
 typedef unsigned short uQuadInt;
 
+struct particle
+{
+    uQuadInt x;
+    uQuadInt y;
+
+    particle(uQuadInt _x, uQuadInt _y) : x(_x), y(_y){}
+
+    bool operator== (particle &p) {return x == p.x && y == p.y;}
+};
+
 struct Node
 {
 	uQuadInt left, right, up, down;
 	uQuadInt midX, midY;
-    union coercion { bitmask4 mask; bitmask4 numOccurences; };
-
-    coercion data;
+    bitmask4 mask;
 
 	Node *upperRight, *upperLeft, *lowerLeft, *lowerRight;
 
@@ -32,7 +42,7 @@ struct Node
 
 		upperRight = upperLeft = lowerLeft = lowerRight = nullptr;
 
-        data.mask = 0;
+        mask = 0;
 	}
 
 	~Node()
@@ -53,6 +63,7 @@ public:
 struct InfoHeader
 {
     unsigned int numNodes;
+    unsigned int numRepeats;
     uQuadInt size;
 };
 
@@ -64,6 +75,8 @@ private:
 
 	unsigned int distribution[0x10];
 
+    std::list<particle> repeatingParticles;
+
 	bitmask4 GetQuadrant(Node* node, uQuadInt x, uQuadInt y);
 
     void Serialize(std::stringbuf &buffer);
@@ -71,17 +84,22 @@ private:
     static void Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
     static Node* CreateChild(Node* parentNode, bitmask4 quadrant);
     static bool IsLeaf(Node* node);
+    static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
+
+    void AddParticle(uQuadInt x, uQuadInt y);
+    void ReadParticles(unsigned char *p, unsigned int numParticles);
+    size_t WriteToStream(std::ostream &outStream);
+    size_t WriteToBuffer(void **out);
 	
 public:
     QuadTree();
 	QuadTree(uQuadInt size);
 	~QuadTree() {if(rootNode != nullptr) delete rootNode;}
 
-	void AddParticle(uQuadInt x, uQuadInt y);
     unsigned int GetNumNodes();
 
-    void WriteToStream(std::ostream &outStream);
-    size_t WriteToBuffer(void **out);
+    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, std::ostream &outStream);
+    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, void **out);
 
-    static size_t ReadFromBuffer(void *in, size_t inSize, void **out);
+    static size_t ReadFromBuffer(void *in, size_t inSize, void **out);    
 };

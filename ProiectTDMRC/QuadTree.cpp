@@ -1,7 +1,7 @@
 #include "QuadTree.h"
 #include "ArithmeticEncoder.h"
+#include "QuickSort.h"
 
-#include <vector>
 #include <queue>
 
 bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
@@ -108,10 +108,10 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 		if(*nextNode == nullptr)
 		{
 			*nextNode = CreateChild(currentNode, quad);
-            assert(distribution[currentNode->data.mask] > 0);
-			distribution[currentNode->data.mask]--;
-			currentNode->data.mask |= quad;
-			distribution[currentNode->data.mask]++;
+            assert(distribution[currentNode->mask] > 0);
+			distribution[currentNode->mask]--;
+			currentNode->mask |= quad;
+			distribution[currentNode->mask]++;
             distribution[0]++;
 
             numNodes++;
@@ -119,17 +119,79 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 
 		currentNode = *nextNode;
     }
+}
 
-    //currently the code doesn't handle more than 15 identical particles, will extend in future (maybe)
-    assert(currentNode->data.numOccurences < 0x0F);
-    distribution[currentNode->data.numOccurences]--;
-    currentNode->data.numOccurences++;
-    distribution[currentNode->data.numOccurences]++;
+void QuadTree::WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &outBuffer)
+{
+    char buffer[4];
+
+    buffer[0] = (char)(x >> 8);
+    buffer[1] = (char)x;
+    buffer[2] = (char)(y >> 8);
+    buffer[3] = (char)y;
+
+    outBuffer.sputn(buffer, sizeof(buffer));
 }
 
 unsigned int QuadTree::GetNumNodes()
 {
     return numNodes;
+}
+
+size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, std::ostream &outStream)
+{
+    QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
+
+    ReadParticles(particlePtr, numParticles);
+    return WriteToStream(outStream);
+}
+
+size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, void **out)
+{
+    QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
+
+    ReadParticles(particlePtr, numParticles);
+    return WriteToBuffer(out);
+}
+
+void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
+{
+    unsigned short numRepeats = 0;
+    uQuadInt previousX, previousY;
+
+    previousX = (p[0] << 8) + p[1];
+    previousY = (p[2] << 8) + p[3];
+
+    p+=4;
+
+    for(unsigned int i = 1; i < numParticles; i++, p += 4)
+    {
+        uQuadInt x = (p[0] << 8) + p[1];
+        uQuadInt y = (p[2] << 8) + p[3];
+
+        if(previousX == x && previousY == y)
+        {
+            numRepeats++;
+            repeatingParticles.push_back(particle(x,y));
+        }
+        else
+        {
+            if(numRepeats == 0)
+            {
+                AddParticle(previousX, previousY);
+            }
+
+            numRepeats = 0;
+        }
+
+        previousX = x;
+        previousY = y;
+    }
+
+    if(numRepeats == 0)
+    {
+        AddParticle(previousX, previousY);
+    }
 }
 
 void QuadTree::Serialize(std::stringbuf &buffer)
@@ -138,19 +200,16 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     InfoHeader header;
 
-    header.numNodes = GetNumNodes();
-    header.size = rootNode->right;
-
-    buffer.sputn((char*)(&header), sizeof(InfoHeader));
-
     breadthFirstNodes.push_back(rootNode);
+    unsigned int numNodes = 0;
 
     for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
     {
         Node* currentNode = breadthFirstNodes[i];
-        if(currentNode->data.mask == 0)
+        if(currentNode->mask == 0)
         {
-            continue;
+            numNodes = i;
+            break;
         }
 
         if(currentNode->lowerLeft != nullptr)
@@ -171,59 +230,41 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         }
     }
 
-    unsigned int numPairs = breadthFirstNodes.size() / 2;
+    header.numNodes = numNodes;
+    header.numRepeats = repeatingParticles.size();
+    header.size = rootNode->right;
+
+    buffer.sputn((char*)(&header), sizeof(InfoHeader));
+
+    for(std::list<particle>::iterator it = repeatingParticles.begin(); it != repeatingParticles.end(); it++)
+    {
+        buffer.sputn((char*)&(*it), sizeof(particle));
+    }
+
+    unsigned int numPairs = numNodes / 2;
 
     std::vector<unsigned int> byteDistribution(0x100, 0);
 
     for(unsigned int i = 0; i < numPairs; i++)
     {
         unsigned char byte = 0;
-        byte |= breadthFirstNodes[2 * i]->data.mask;
-        byte |= (breadthFirstNodes[2 * i + 1]->data.mask)<<4;
+        assert(breadthFirstNodes[2 * i]->mask != 0);
+        byte |= breadthFirstNodes[2 * i]->mask;
+        byte |= (breadthFirstNodes[2 * i + 1]->mask)<<4;
 
         buffer.sputc(byte);
         byteDistribution[byte]++;
     }
 
     //add last element for uneven number of nodes
-    if(breadthFirstNodes.size() % 2 != 0)
+    if(numNodes % 2 != 0)
     {
-        buffer.sputc(breadthFirstNodes[2 * numPairs]->data.mask);
-        byteDistribution[breadthFirstNodes[2 * numPairs]->data.mask]++;
+        buffer.sputc(breadthFirstNodes[2 * numPairs]->mask);
+        byteDistribution[breadthFirstNodes[2 * numPairs]->mask]++;
     }
 
     std::string outString = buffer.str();
     std::cout<<"size without arithmetic encoding: "<<outString.size()<<std::endl;
-
-    //arithmetic encoding
-    ArithmeticEncoder<unsigned long long> encoder;
-    BitBuffer bitBuffer;
-    encoder.SetFrequencyFromDistribution(byteDistribution);
-
-    buffer.pubseekoff(sizeof(InfoHeader), std::ios_base::beg);
-
-    encoder.Encode(bitBuffer, buffer, outString.size() - sizeof(InfoHeader));
-
-    std::cout<<"size with arithmetic encoding: "<<bitBuffer.GetBuffer().str().size()<<std::endl;
-
-    std::stringbuf decompBuffer;
-
-    BitBuffer bitBuffer2(bitBuffer.GetBuffer().str());
-
-    encoder.Decode(bitBuffer2, decompBuffer, outString.size() - sizeof(InfoHeader));
-
-    buffer.pubseekoff(sizeof(InfoHeader), std::ios_base::beg);
-    decompBuffer.pubseekoff(0, std::ios_base::beg);
-
-    for(unsigned int i = 900000; i < decompBuffer.str().size(); i++)
-    {
-        if(buffer.sbumpc() != decompBuffer.sbumpc())
-        {
-            std::cout<<"difference at: "<<i<<std::endl;
-        }
-    }
-
-    std::cout<<"size after arithmetic decoding: "<<decompBuffer.str().size()<<std::endl;
 }
 
 void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
@@ -231,6 +272,31 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
     InfoHeader header;
 
     inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
+
+    if(header.numRepeats > 0)
+    {
+        particle prevParticle(0,0);
+        particle currentParticle(0,0);
+
+        inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
+
+        WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+
+        for(unsigned int i = 1; i < header.numRepeats; i++)
+        {
+            inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
+
+            WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+            if(!(currentParticle == prevParticle))
+            {
+                WriteParticle(currentParticle.x, currentParticle.y, outBuffer);
+            }
+
+            prevParticle = currentParticle;
+        }
+
+        WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+    }
 
 	std::vector<bitmask4> bitmaskVector;
 
@@ -257,46 +323,34 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	unsigned int i = 0;
 	bool stopAddingNodes = false;
 
-	char buffer[4];
-
 	while(!nodeQueue.empty())
 	{
-		assert(i < header.numNodes);
-
 		Node* currentNode = nodeQueue.front();
 		nodeQueue.pop();
 
-		currentNode->data.mask = bitmaskVector[i++];
-
-		if(stopAddingNodes || (stopAddingNodes = IsLeaf(currentNode)))
+		if(stopAddingNodes || (stopAddingNodes = (i >= header.numNodes)))
 		{
 			assert(currentNode->left == currentNode->midX);
 
-			buffer[0] = (char)(currentNode->left >> 8);
-			buffer[1] = (char)currentNode->left;
-			buffer[2] = (char)(currentNode->down >> 8);
-			buffer[3] = (char)currentNode->down;
-
-			for(unsigned int j = 0; j < currentNode->data.numOccurences; j++)
-			{
-				outBuffer.sputn(buffer, sizeof(buffer));
-			}
+            WriteParticle(currentNode->left, currentNode->down, outBuffer);
 		}
         else
         {
-		    if(currentNode->data.mask & LOWER_LEFT)
+            currentNode->mask = bitmaskVector[i++];
+
+		    if(currentNode->mask & LOWER_LEFT)
 		    {
 			    nodeQueue.push(CreateChild(currentNode, LOWER_LEFT));
 		    }
-		    if(currentNode->data.mask & LOWER_RIGHT)
+		    if(currentNode->mask & LOWER_RIGHT)
 		    {
 			    nodeQueue.push(CreateChild(currentNode, LOWER_RIGHT));
 		    }
-		    if(currentNode->data.mask & UPPER_LEFT)
+		    if(currentNode->mask & UPPER_LEFT)
 		    {
 			    nodeQueue.push(CreateChild(currentNode, UPPER_LEFT));
 		    }
-		    if(currentNode->data.mask & UPPER_RIGHT)
+		    if(currentNode->mask & UPPER_RIGHT)
 		    {
 			    nodeQueue.push(CreateChild(currentNode, UPPER_RIGHT));
 		    }
@@ -306,7 +360,7 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	}
 }
 
-void QuadTree::WriteToStream(std::ostream &outStream)
+size_t QuadTree::WriteToStream(std::ostream &outStream)
 {
     std::stringbuf buffer;
 
@@ -314,6 +368,8 @@ void QuadTree::WriteToStream(std::ostream &outStream)
 
     std::string outString = buffer.str();
     outStream.write(outString.c_str(), outString.size());
+
+    return outString.size();
 }
 
 size_t QuadTree::WriteToBuffer(void **out)

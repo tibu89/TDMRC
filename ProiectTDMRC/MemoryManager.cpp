@@ -103,6 +103,8 @@ MemoryManager& MemoryManager::operator=(MemoryManager &right)
 
 	//sizes.init();
 	sizes = right.sizes;
+
+    return *this;
 }
 
 

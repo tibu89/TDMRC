@@ -14,20 +14,8 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 
 	QuadTree *quadTree = new QuadTree(32 * 256);
 
-	for(unsigned int i = 0; i < numParticles; i++, p += 4)
-	{
-		uQuadInt x = p[0];
-		x <<= 8;
-		x |= p[1];
-
-		uQuadInt y = p[2];
-		y <<= 8;
-		y |= p[3];
-
-		quadTree->AddParticle(x, y);
-	}
-
-    size_t outSize = quadTree->WriteToBuffer(out);
+    size_t outSize = quadTree->Encode(p, numParticles, out);
+    std::cout<<"size after quadtree encode: "<<outSize<<std::endl;
 
 	delete quadTree;
 
