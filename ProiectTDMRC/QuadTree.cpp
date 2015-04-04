@@ -4,11 +4,11 @@
 
 #include <queue>
 
-bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
+bitmask4 QuadTree::GetQuadrant(Node &node, uQuadInt x, uQuadInt y)
 {
-	if(x < node->midX)
+	if(x < node.midX)
 	{
-		if(y < node->midY)
+		if(y < node.midY)
 		{
 			return LOWER_LEFT;
 		}
@@ -19,7 +19,7 @@ bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
 	}
 	else
 	{
-		if(y < node->midY)
+		if(y < node.midY)
 		{
 			return LOWER_RIGHT;
 		}
@@ -28,6 +28,31 @@ bitmask4 QuadTree::GetQuadrant(Node* node, uQuadInt x, uQuadInt y)
 			return UPPER_RIGHT;
 		}
 	}
+}
+
+int QuadTree::CreateChild(Node &parent, bitmask4 quadrant, std::vector<Node> &nodeVector)
+{
+	switch(quadrant)
+	{
+	case LOWER_LEFT:
+		nodeVector.push_back(Node(parent.left, parent.midX, parent.midY, parent.down));
+		break;
+	case LOWER_RIGHT:
+		nodeVector.push_back(Node(parent.midX, parent.right, parent.midY, parent.down));
+		break;
+	case UPPER_RIGHT:
+		nodeVector.push_back(Node(parent.midX, parent.right, parent.up, parent.midY));
+		break;
+	case UPPER_LEFT:
+		nodeVector.push_back(Node(parent.left, parent.midX, parent.up, parent.midY));
+		break;
+	default:
+		assert(false); //CreateChild called with invalid quadrant
+		return -1;
+		break;
+	}
+
+	return nodeVector.size() - 1;
 }
 
 Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
@@ -47,16 +72,17 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 		return new Node(parent->left, parent->midX, parent->up, parent->midY);
 		break;
 	default:
-		assert(false);
+		assert(false); //CreateChild called with invalid quadrant
 		break;
 	}
 
 	return nullptr;
 }
 
+
 QuadTree::QuadTree(uQuadInt size) : numNodes(1)
 {
-	rootNode = new Node(0, size, size, 0);
+	nodePool.push_back(Node(0, size, size, 0));
 
 	for(unsigned int i = 1; i < 0x10; i++)
 	{
@@ -66,58 +92,35 @@ QuadTree::QuadTree(uQuadInt size) : numNodes(1)
 	distribution[0] = 1;
 }
 
-QuadTree::QuadTree() : numNodes(0), rootNode(nullptr)
+bool QuadTree::IsLeaf(Node &node)
 {
-	for(unsigned int i = 0; i < 0x10; i++)
-    {
-        distribution[i] = 0;
-    }
-}
-
-bool QuadTree::IsLeaf(Node* node)
-{
-	return (node->right - node->left == 1);
+	return (node.right - node.left == 1);
 }
 
 void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 {
-	Node* currentNode = rootNode;
+	int currentNodeID = 0;
 
-	while(	currentNode->left + 1 < currentNode->right &&
-			currentNode->down + 1 < currentNode->up)
+	while(	nodePool[currentNodeID].left + 1 < nodePool[currentNodeID].right &&
+			nodePool[currentNodeID].down + 1 < nodePool[currentNodeID].up)
 	{
-		bitmask4 quad = GetQuadrant(currentNode, x, y);
-		Node** nextNode;
+		bitmask4 quad = GetQuadrant(nodePool[currentNodeID], x, y);
+		int nextNodeID = nodePool[currentNodeID].GetChildIDFromQuad(quad);
 
-		switch(quad)
+		if(nextNodeID == -1)
 		{
-		case UPPER_RIGHT:
-			nextNode = &currentNode->upperRight;
-			break;
-		case LOWER_RIGHT:
-			nextNode = &currentNode->lowerRight;
-			break;
-		case UPPER_LEFT:
-			nextNode = &currentNode->upperLeft;
-			break;
-		case LOWER_LEFT:
-			nextNode = &currentNode->lowerLeft;
-			break;
-		}
-
-		if(*nextNode == nullptr)
-		{
-			*nextNode = CreateChild(currentNode, quad);
-            assert(distribution[currentNode->mask] > 0);
-			distribution[currentNode->mask]--;
-			currentNode->mask |= quad;
-			distribution[currentNode->mask]++;
+			nextNodeID = CreateChild(nodePool[currentNodeID], quad, nodePool);
+			nodePool[currentNodeID].SetChildIDFromQuad(quad, nextNodeID);
+            assert(distribution[nodePool[currentNodeID].mask] > 0);
+			distribution[nodePool[currentNodeID].mask]--;
+			nodePool[currentNodeID].mask |= quad;
+			distribution[nodePool[currentNodeID].mask]++;
             distribution[0]++;
 
             numNodes++;
 		}
 
-		currentNode = *nextNode;
+		currentNodeID = nextNodeID;
     }
 }
 
@@ -200,7 +203,7 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     InfoHeader header;
 
-    breadthFirstNodes.push_back(rootNode);
+	breadthFirstNodes.push_back(&nodePool[0]);
     unsigned int numNodes = 0;
 
     for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
@@ -212,27 +215,27 @@ void QuadTree::Serialize(std::stringbuf &buffer)
             break;
         }
 
-        if(currentNode->lowerLeft != nullptr)
+        if(currentNode->lowerLeftID != -1)
         {
-            breadthFirstNodes.push_back(currentNode->lowerLeft);
+            breadthFirstNodes.push_back(&nodePool[currentNode->lowerLeftID]);
         }
-        if(currentNode->lowerRight != nullptr)
+        if(currentNode->lowerRightID != -1)
         {
-            breadthFirstNodes.push_back(currentNode->lowerRight);
+            breadthFirstNodes.push_back(&nodePool[currentNode->lowerRightID]);
         }
-        if(currentNode->upperLeft != nullptr)
+        if(currentNode->upperLeftID != -1)
         {
-            breadthFirstNodes.push_back(currentNode->upperLeft);
+            breadthFirstNodes.push_back(&nodePool[currentNode->upperLeftID]);
         }
-        if(currentNode->upperRight != nullptr)
+        if(currentNode->upperRightID != -1)
         {
-            breadthFirstNodes.push_back(currentNode->upperRight);
+            breadthFirstNodes.push_back(&nodePool[currentNode->upperRightID]);
         }
     }
 
     header.numNodes = numNodes;
     header.numRepeats = repeatingParticles.size();
-    header.size = rootNode->right;
+    header.size = nodePool[0].right;
 
     buffer.sputn((char*)(&header), sizeof(InfoHeader));
 
@@ -262,9 +265,6 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         buffer.sputc(breadthFirstNodes[2 * numPairs]->mask);
         byteDistribution[breadthFirstNodes[2 * numPairs]->mask]++;
     }
-
-    std::string outString = buffer.str();
-    std::cout<<"size without arithmetic encoding: "<<outString.size()<<std::endl;
 }
 
 void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)

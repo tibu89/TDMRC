@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include <list>
+#include <vector>
 
 #define UPPER_RIGHT 1
 #define UPPER_LEFT  2
@@ -30,7 +31,7 @@ struct Node
 	uQuadInt midX, midY;
     bitmask4 mask;
 
-	Node *upperRight, *upperLeft, *lowerLeft, *lowerRight;
+	int upperRightID, upperLeftID, lowerLeftID, lowerRightID;
 
 	Node(uQuadInt l = 0, uQuadInt r = 1, uQuadInt u = 1, uQuadInt d = 0) : left(l), right(r), up(u), down(d)
 	{
@@ -40,17 +41,9 @@ struct Node
 		midX = (right + left) / 2;
 		midY = (down  + up)   / 2;
 
-		upperRight = upperLeft = lowerLeft = lowerRight = nullptr;
+		upperRightID = upperLeftID = lowerLeftID = lowerRightID = -1;
 
         mask = 0;
-	}
-
-	~Node()
-	{
-		if(upperRight != nullptr) { delete upperRight; upperRight = nullptr; }
-		if(upperLeft  != nullptr) { delete  upperLeft;  upperLeft = nullptr; }
-		if(lowerRight != nullptr) { delete lowerRight; lowerRight = nullptr; }
-        if(lowerLeft  != nullptr) { delete  lowerLeft;  lowerLeft = nullptr; }
 	}
 
 public:
@@ -58,6 +51,46 @@ public:
     {
         left = l; right = r; up = u; down = d;
     }
+
+	int GetChildIDFromQuad(bitmask4 quad)
+	{
+		switch(quad)
+		{
+		case UPPER_RIGHT:
+			return upperRightID;
+		case LOWER_RIGHT:
+			return lowerRightID;
+		case UPPER_LEFT:
+			return upperLeftID;
+		case LOWER_LEFT:
+			return lowerLeftID;
+		default:
+			assert(false); //GetChildIDFromQuad called with invalid quad
+		}
+
+		return -1;
+	}
+
+	void SetChildIDFromQuad(bitmask4 quad, int id)
+	{
+		switch(quad)
+		{
+		case UPPER_RIGHT:
+			upperRightID = id;
+			break;
+		case LOWER_RIGHT:
+			lowerRightID = id;
+			break;
+		case UPPER_LEFT:
+			upperLeftID = id;
+			break;
+		case LOWER_LEFT:
+			lowerLeftID = id;
+			break;
+		default:
+			assert(false); //SetChildIDFromQuad called with invalid quad
+		}
+	}
 };
 
 struct InfoHeader
@@ -70,20 +103,21 @@ struct InfoHeader
 class QuadTree
 {
 private:
-	Node *rootNode;
 	unsigned int numNodes;
 
 	unsigned int distribution[0x10];
 
     std::list<particle> repeatingParticles;
+	std::vector<Node> nodePool;
 
-	bitmask4 GetQuadrant(Node* node, uQuadInt x, uQuadInt y);
+	bitmask4 GetQuadrant(Node &node, uQuadInt x, uQuadInt y);
 
     void Serialize(std::stringbuf &buffer);
 
     static void Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
-    static Node* CreateChild(Node* parentNode, bitmask4 quadrant);
-    static bool IsLeaf(Node* node);
+    static Node* CreateChild(Node *parentNode, bitmask4 quadrant);
+	static int   CreateChild(Node &parentNode, bitmask4 quadrant, std::vector<Node> &nodeVector);
+    static bool IsLeaf(Node &node);
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
 
     void AddParticle(uQuadInt x, uQuadInt y);
@@ -94,7 +128,6 @@ private:
 public:
     QuadTree();
 	QuadTree(uQuadInt size);
-	~QuadTree() {if(rootNode != nullptr) delete rootNode;}
 
     unsigned int GetNumNodes();
 
