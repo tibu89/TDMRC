@@ -122,8 +122,7 @@ private:
 
     void AddParticle(uQuadInt x, uQuadInt y);
     void ReadParticles(unsigned char *p, unsigned int numParticles);
-    size_t WriteToStream(std::ostream &outStream);
-    size_t WriteToBuffer(void **out);
+    size_t WriteToBuffer(std::stringbuf &buf);
 	
 public:
     QuadTree();
@@ -131,8 +130,7 @@ public:
 
     unsigned int GetNumNodes();
 
-    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, std::ostream &outStream);
-    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, void **out);
+    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &outBuf);
 
     static size_t ReadFromBuffer(void *in, size_t inSize, void **out);    
 };

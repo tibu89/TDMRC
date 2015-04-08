@@ -7,30 +7,23 @@ class BitBuffer
 private:
     unsigned short currentNum;
     unsigned char currentChar;
-    std::stringbuf buffer;
+    std::stringbuf *buffer;
 
 public:
-    BitBuffer() : currentChar(0), currentNum(0)
-    {
-        buffer.pubseekpos(0, std::ios_base::in);
-    }
     
-    BitBuffer(std::string &inString) : currentChar(0), currentNum(0)
+    BitBuffer(std::stringbuf *inBuf) : currentChar(0), currentNum(0), buffer(inBuf)
     {
-        std::streamsize num = buffer.sputn(inString.c_str(), inString.size());
-        buffer.pubseekpos(0, std::ios_base::out);
+        buffer->pubseekpos(0, std::ios_base::out);
 
-        currentChar = buffer.sbumpc();
+        currentChar = buffer->sbumpc();
     }
 
     void Flush()
     {
         currentChar <<= currentNum;
-        buffer.sputc(currentChar);
+        buffer->sputc(currentChar);
         currentChar = 0;
     }
-
-    std::stringbuf& GetBuffer(){return buffer;}    
 
     void PutBit(unsigned short bit)
     {
@@ -54,7 +47,7 @@ public:
         if(currentNum == 8)
         {
             currentNum = 0;
-            currentChar = buffer.sbumpc();
+            currentChar = buffer->sbumpc();
         }
 
         return (currentChar & (1<<(7 - currentNum++))) != 0;
@@ -139,11 +132,38 @@ public:
         }
     }
 
-    void Encode(BitBuffer &outBuffer, std::stringbuf &inBuffer, unsigned int numValues)
+	void SetFrequencyFromBuffer(std::stringbuf &inBuf)
+	{
+		std::streamsize size = inBuf.str().size();
+		cumulativeFrequency = std::vector<CodeValue>(257, 0);
+
+		for(int i = 0; i < size; i++)
+		{
+			unsigned char c;
+			c = inBuf.sbumpc();
+
+			for(int j = c + 1; j < 257; j++)
+			{
+				cumulativeFrequency[j]++;
+                assert(cumulativeFrequency[j] <= MAX_FREQ);
+			}
+		}
+
+		inBuf.pubseekpos(0);
+	}
+
+    void Encode(std::stringbuf &outBuffer, std::stringbuf &inBuffer, unsigned int numValues)
     {
         CodeValue high = MAX_CODE;
         CodeValue low = 0;
         CodeValue pendingBits = 0;
+
+		BitBuffer bitBuffer(&outBuffer);
+
+		for(unsigned int i = 0; i < cumulativeFrequency.size(); i++)
+		{
+			outBuffer.sputn((char*)&cumulativeFrequency[i], sizeof(CodeValue));
+		}
 
         unsigned int i = 0;
         for(; i < numValues; i++)
@@ -163,11 +183,11 @@ public:
             {
                 if(high < ONE_HALF)
                 {
-                    OutputBit(0, pendingBits, outBuffer);
+                    OutputBit(0, pendingBits, bitBuffer);
                 }
                 else if(low >= ONE_HALF)
                 {
-                    OutputBit(1, pendingBits, outBuffer);
+                    OutputBit(1, pendingBits, bitBuffer);
                 }
                 else if(low >= ONE_FOURTH && high < THREE_FOURTHS)
                 {
@@ -191,15 +211,15 @@ public:
         pendingBits++;
         if(low < ONE_FOURTH)
         {
-            OutputBit(0, pendingBits, outBuffer);
+            OutputBit(0, pendingBits, bitBuffer);
         }
         else
         {
-            OutputBit(1, pendingBits, outBuffer);
+            OutputBit(1, pendingBits, bitBuffer);
         }
         assert(pendingBits == 0);
 
-        outBuffer.Flush();
+        bitBuffer.Flush();
     }
 
     void Decode(BitBuffer &inBuffer, std::stringbuf &outBuffer, unsigned int numValues)

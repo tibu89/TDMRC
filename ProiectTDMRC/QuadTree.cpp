@@ -141,20 +141,12 @@ unsigned int QuadTree::GetNumNodes()
     return numNodes;
 }
 
-size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, std::ostream &outStream)
+size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &buf)
 {
     QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
 
     ReadParticles(particlePtr, numParticles);
-    return WriteToStream(outStream);
-}
-
-size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, void **out)
-{
-    QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
-
-    ReadParticles(particlePtr, numParticles);
-    return WriteToBuffer(out);
+    return WriteToBuffer(buf);
 }
 
 void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
@@ -246,8 +238,6 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     unsigned int numPairs = numNodes / 2;
 
-    std::vector<unsigned int> byteDistribution(0x100, 0);
-
     for(unsigned int i = 0; i < numPairs; i++)
     {
         unsigned char byte = 0;
@@ -256,14 +246,12 @@ void QuadTree::Serialize(std::stringbuf &buffer)
         byte |= (breadthFirstNodes[2 * i + 1]->mask)<<4;
 
         buffer.sputc(byte);
-        byteDistribution[byte]++;
     }
 
     //add last element for uneven number of nodes
     if(numNodes % 2 != 0)
     {
         buffer.sputc(breadthFirstNodes[2 * numPairs]->mask);
-        byteDistribution[breadthFirstNodes[2 * numPairs]->mask]++;
     }
 }
 
@@ -360,30 +348,12 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	}
 }
 
-size_t QuadTree::WriteToStream(std::ostream &outStream)
+size_t QuadTree::WriteToBuffer(std::stringbuf &buffer)
 {
-    std::stringbuf buffer;
-
-    Serialize(buffer);
-
-    std::string outString = buffer.str();
-    outStream.write(outString.c_str(), outString.size());
-
-    return outString.size();
-}
-
-size_t QuadTree::WriteToBuffer(void **out)
-{
-    std::stringbuf buffer;
-
     Serialize(buffer);
 
     std::string outString = buffer.str();
     size_t outSize = outString.size();
-
-    *out = new unsigned char[outSize];
-
-    memcpy(*out, outString.c_str(), outSize);
 
     return outSize;
 }
