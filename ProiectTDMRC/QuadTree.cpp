@@ -255,7 +255,7 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     }
 }
 
-void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
+size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 {
     InfoHeader header;
 
@@ -346,6 +346,8 @@ void QuadTree::Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 
         delete currentNode;
 	}
+
+    return outBuffer.str().size();
 }
 
 size_t QuadTree::WriteToBuffer(std::stringbuf &buffer)
@@ -356,19 +358,4 @@ size_t QuadTree::WriteToBuffer(std::stringbuf &buffer)
     size_t outSize = outString.size();
 
     return outSize;
-}
-
-size_t QuadTree::ReadFromBuffer(void *in, size_t inSize, void **out)
-{
-    std::stringbuf inBuffer(std::string((char*)in, inSize));
-	std::stringbuf outBuffer;
-
-    Deserialize(inBuffer, outBuffer);
-
-	size_t outSize = outBuffer.str().size();
-
-	*out = new unsigned char[outSize];
-	memcpy(*out, outBuffer.str().c_str(), outSize);
-
-	return outSize;
 }

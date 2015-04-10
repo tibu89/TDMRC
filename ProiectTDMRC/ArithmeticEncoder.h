@@ -13,10 +13,10 @@ public:
     
     BitBuffer(std::stringbuf *inBuf) : currentChar(0), currentNum(0), buffer(inBuf)
     {
-        buffer->pubseekpos(0, std::ios_base::out);
-
         currentChar = buffer->sbumpc();
     }
+
+    std::stringbuf* GetBuffer(){ return buffer; }
 
     void Flush()
     {
@@ -116,54 +116,56 @@ private:
         return cumulativeFrequency.back();
     }
 
-public:
-    void SetFrequencyFromDistribution(std::vector<unsigned int> &distribution)
+    void SetFrequencyFromBuffer(std::stringbuf &inBuf)
     {
-        cumulativeFrequency = std::vector<CodeValue>(distribution.size() + 1, 0);
+        std::streamsize size = inBuf.str().size();
+        cumulativeFrequency = std::vector<CodeValue>(257, 0);
 
-        for(unsigned int i = 0; i < distribution.size(); i++)
+        for(int i = 0; i < size; i++)
         {
-            CodeValue currentVal = distribution[i];
-            for(unsigned j = i + 1; j < cumulativeFrequency.size(); j++)
+            unsigned char c;
+            c = inBuf.sbumpc();
+
+            for(int j = c + 1; j < 257; j++)
             {
-                cumulativeFrequency[j] += currentVal;
+                cumulativeFrequency[j]++;
                 assert(cumulativeFrequency[j] <= MAX_FREQ);
             }
         }
+
+        inBuf.pubseekpos(0);
     }
 
-	void SetFrequencyFromBuffer(std::stringbuf &inBuf)
-	{
-		std::streamsize size = inBuf.str().size();
-		cumulativeFrequency = std::vector<CodeValue>(257, 0);
+    void GetFrequencyFromBuffer(std::stringbuf &inBuf)
+    {
+        cumulativeFrequency = std::vector<CodeValue>(257, 0);
 
-		for(int i = 0; i < size; i++)
-		{
-			unsigned char c;
-			c = inBuf.sbumpc();
+        for(int i = 0; i < 257; i++)
+        {
+            inBuf.sgetn((char*)(&cumulativeFrequency[i]), sizeof(CodeValue));
+        }
+    }
 
-			for(int j = c + 1; j < 257; j++)
-			{
-				cumulativeFrequency[j]++;
-                assert(cumulativeFrequency[j] <= MAX_FREQ);
-			}
-		}
-
-		inBuf.pubseekpos(0);
-	}
+public:
 
     void Encode(std::stringbuf &outBuffer, std::stringbuf &inBuffer, unsigned int numValues)
     {
+        inBuffer.pubseekpos(0);
+
+        SetFrequencyFromBuffer(inBuffer);
+
         CodeValue high = MAX_CODE;
         CodeValue low = 0;
         CodeValue pendingBits = 0;
 
-		BitBuffer bitBuffer(&outBuffer);
+        outBuffer.sputn((char*)(&numValues), sizeof(unsigned int));
 
 		for(unsigned int i = 0; i < cumulativeFrequency.size(); i++)
 		{
-			outBuffer.sputn((char*)&cumulativeFrequency[i], sizeof(CodeValue));
-		}
+			outBuffer.sputn((char*)(&cumulativeFrequency[i]), sizeof(CodeValue));
+        }
+
+        BitBuffer bitBuffer(&outBuffer);
 
         unsigned int i = 0;
         for(; i < numValues; i++)
@@ -222,27 +224,27 @@ public:
         bitBuffer.Flush();
     }
 
-    void Decode(BitBuffer &inBuffer, std::stringbuf &outBuffer, unsigned int numValues)
+    void Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
     {
+        inBuffer.pubseekpos(0);
+
+        unsigned int numValues;
+
+        inBuffer.sgetn((char*)(&numValues), sizeof(unsigned int));
+
+        GetFrequencyFromBuffer(inBuffer);
+
+        BitBuffer bitBuffer(&inBuffer);
+
         CodeValue low = 0;
         CodeValue high = MAX_CODE;
 
         CodeValue value = 0;
 
-        unsigned short bitCount = 0;
-        unsigned int byteCount = 0;
-
         for(int i = 0; i < CODE_VALUE_BITS; i++)
         {
             value <<= 1;
-            value += inBuffer.GetBit() ? 1 : 0;
-
-            bitCount++;
-            if(bitCount == 8)
-            {
-                bitCount = 0;
-                byteCount++;
-            }
+            value += bitBuffer.GetBit() ? 1 : 0;
         }        
 
         CodeValue count = GetCount();
@@ -268,7 +270,7 @@ public:
             {
                 if(high < ONE_HALF)
                 {
-                    
+                    ;
                 }
                 else if(low >= ONE_HALF)
                 {
@@ -291,17 +293,8 @@ public:
                 high <<= 1;
                 high++;
                 value <<= 1;
-                value += inBuffer.GetBit() ? 1 : 0;
-
-                bitCount++;
-                if(bitCount == 8)
-                {
-                    bitCount = 0;
-                    byteCount++;
-                }
+                value += bitBuffer.GetBit() ? 1 : 0;
             }
         }
-
-        std::cout<<"decode bytes read: "<<byteCount<<std::endl;
     }
 };

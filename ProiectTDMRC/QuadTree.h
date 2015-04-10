@@ -114,7 +114,6 @@ private:
 
     void Serialize(std::stringbuf &buffer);
 
-    static void Deserialize(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
     static Node* CreateChild(Node *parentNode, bitmask4 quadrant);
 	static int   CreateChild(Node &parentNode, bitmask4 quadrant, std::vector<Node> &nodeVector);
     static bool IsLeaf(Node &node);
@@ -132,5 +131,5 @@ public:
 
     size_t Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &outBuf);
 
-    static size_t ReadFromBuffer(void *in, size_t inSize, void **out);    
+    static size_t Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
 };
