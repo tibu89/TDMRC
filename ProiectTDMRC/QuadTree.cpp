@@ -80,16 +80,12 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 }
 
 
-QuadTree::QuadTree(uQuadInt size) : numNodes(1)
+QuadTree::QuadTree() : numNodes(0), rootNodeID(-1)
 {
-	nodePool.push_back(Node(0, size, size, 0));
-
-	for(unsigned int i = 1; i < 0x10; i++)
-	{
-		distribution[i] = 0;
-	}
-
-	distribution[0] = 1;
+    for(unsigned int i = 0; i < 0x10; i++)
+    {
+        distribution[i] = 0;
+    }
 }
 
 bool QuadTree::IsLeaf(Node &node)
@@ -97,9 +93,53 @@ bool QuadTree::IsLeaf(Node &node)
 	return (node.right - node.left == 1);
 }
 
+void QuadTree::SetRootNode(uQuadInt x, uQuadInt y)
+{
+    assert(nodePool.size() == 0);
+
+    uQuadInt size = 1;
+
+    while(size <= x || size <= y)
+    {
+        size *= 2;
+    }
+
+    nodePool.push_back(Node(0, size, size, 0));
+    distribution[0] = 1;
+    rootNodeID = 0;
+}
+
+void QuadTree::CheckDimensions(uQuadInt x, uQuadInt y)
+{
+    Node &rootNode = nodePool[rootNodeID];
+
+    while(rootNode.right <= x || rootNode.up <= y)
+    {
+        assert(rootNode.right == rootNode.up);
+        assert(rootNode.left == rootNode.down == 0);
+
+        Node newRoot(0, rootNode.right * 2, rootNode.up * 2, 0);
+        newRoot.lowerLeftID = rootNodeID;
+        newRoot.mask = LOWER_LEFT;
+        distribution[LOWER_LEFT]++;
+
+        nodePool.push_back(newRoot);
+        rootNodeID = nodePool.size() - 1;
+
+        rootNode = nodePool.back();
+    }
+}
+
 void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 {
-	int currentNodeID = 0;
+    if(nodePool.size() == 0)
+    {
+        SetRootNode(x, y);
+    }
+
+    CheckDimensions(x, y);
+
+	int currentNodeID = rootNodeID;
 
 	while(	nodePool[currentNodeID].left + 1 < nodePool[currentNodeID].right &&
 			nodePool[currentNodeID].down + 1 < nodePool[currentNodeID].up)

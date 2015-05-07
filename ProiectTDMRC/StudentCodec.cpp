@@ -12,7 +12,7 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 
 	unsigned int numParticles = in_size / 4;
 
-	QuadTree *quadTree = new QuadTree(32 * 256);
+	QuadTree *quadTree = new QuadTree();
 
 	std::stringbuf strBufQuadEnc;
 

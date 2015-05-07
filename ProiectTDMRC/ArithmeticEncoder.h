@@ -1,26 +1,27 @@
+#pragma once
+
 #include <vector>
 #include <sstream>
 #include <assert.h>
 
+
 class BitBuffer
 {
-private:
+protected:
     unsigned short currentNum;
     unsigned char currentChar;
     std::stringbuf *buffer;
 
+    BitBuffer(std::stringbuf *inBuf) : buffer(inBuf) {}
+
 public:
-    
-    BitBuffer(std::stringbuf *inBuf) : currentChar(0), currentNum(0), buffer(inBuf)
-    {
-        currentChar = buffer->sbumpc();
-    }
 
     std::stringbuf* GetBuffer(){ return buffer; }
 
     void Flush()
     {
-        currentChar <<= currentNum;
+        currentChar <<= 8 - currentNum;
+        currentNum = 0;
         buffer->sputc(currentChar);
         currentChar = 0;
     }
@@ -37,7 +38,6 @@ public:
 
         if(currentNum == 8)
         {
-            currentNum = 0;
             Flush();
         }
     }
@@ -51,6 +51,26 @@ public:
         }
 
         return (currentChar & (1<<(7 - currentNum++))) != 0;
+    }
+};
+
+class InBitBuffer : public BitBuffer
+{
+public:
+    InBitBuffer(std::stringbuf *inBuf) : BitBuffer(inBuf)
+    {
+        currentNum = 0;
+        currentChar = buffer->sbumpc();
+    }
+};
+
+class OutBitBuffer : public BitBuffer
+{
+public:
+    OutBitBuffer(std::stringbuf *inBuf) : BitBuffer(inBuf)
+    {
+        currentNum = 0;
+        currentChar = 0;
     }
 };
 
@@ -165,7 +185,7 @@ public:
 			outBuffer.sputn((char*)(&cumulativeFrequency[i]), sizeof(CodeValue));
         }
 
-        BitBuffer bitBuffer(&outBuffer);
+        OutBitBuffer bitBuffer(&outBuffer);
 
         unsigned int i = 0;
         for(; i < numValues; i++)
@@ -173,6 +193,7 @@ public:
             assert(low < high);
             assert(high <= MAX_CODE);
 
+            assert(inBuffer.in_avail() != 0);
             unsigned char value = inBuffer.sbumpc();
 
             CodeValue range = high - low + 1;
@@ -210,6 +231,8 @@ public:
             }
         }
 
+        assert(inBuffer.in_avail() == 0);
+
         pendingBits++;
         if(low < ONE_FOURTH)
         {
@@ -234,7 +257,7 @@ public:
 
         GetFrequencyFromBuffer(inBuffer);
 
-        BitBuffer bitBuffer(&inBuffer);
+        InBitBuffer bitBuffer(&inBuffer);
 
         CodeValue low = 0;
         CodeValue high = MAX_CODE;
@@ -249,7 +272,7 @@ public:
 
         CodeValue count = GetCount();
 
-        for(unsigned int i = 0; i < numValues; i++)
+        for(unsigned int i = 0;; i++)
         {
             CodeValue range = high - low + 1;
             CodeValue scaledValue = ((value - low + 1) * count - 1) / range;
@@ -265,6 +288,10 @@ public:
             low  = low + (range * prob.lower / prob.denominator);
 
             outBuffer.sputc(c);
+            if(i == numValues - 1)
+            {
+                break;
+            }
 
             for(;;)
             {

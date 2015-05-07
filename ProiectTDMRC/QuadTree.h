@@ -104,6 +104,7 @@ class QuadTree
 {
 private:
 	unsigned int numNodes;
+    int rootNodeID;
 
 	unsigned int distribution[0x10];
 
@@ -120,12 +121,13 @@ private:
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
 
     void AddParticle(uQuadInt x, uQuadInt y);
+    void SetRootNode(uQuadInt x, uQuadInt y);
+    void CheckDimensions(uQuadInt x, uQuadInt y);
     void ReadParticles(unsigned char *p, unsigned int numParticles);
     size_t WriteToBuffer(std::stringbuf &buf);
 	
 public:
-    QuadTree();
-	QuadTree(uQuadInt size);
+	QuadTree();
 
     unsigned int GetNumNodes();
 
