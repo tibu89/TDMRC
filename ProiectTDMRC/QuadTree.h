@@ -27,19 +27,15 @@ struct particle
 
 struct Node
 {
-	uQuadInt left, right, up, down;
-	uQuadInt midX, midY;
+	uQuadInt left, down;
+	uQuadInt size;
     bitmask4 mask;
 
 	int upperRightID, upperLeftID, lowerLeftID, lowerRightID;
 
-	Node(uQuadInt l = 0, uQuadInt r = 1, uQuadInt u = 1, uQuadInt d = 0) : left(l), right(r), up(u), down(d)
+	Node(uQuadInt l = 0, uQuadInt d = 0, uQuadInt s = 1) : left(l), down(d), size(s)
 	{
-		assert(left < right);
-		assert(down < up);
-
-		midX = (right + left) / 2;
-		midY = (down  + up)   / 2;
+		assert(size > 1);
 
 		upperRightID = upperLeftID = lowerLeftID = lowerRightID = -1;
 
@@ -47,9 +43,11 @@ struct Node
 	}
 
 public:
-    void SetParams(uQuadInt l, uQuadInt r, uQuadInt u, uQuadInt d)
+    void SetParams(uQuadInt l, uQuadInt d, uQuadInt s)
     {
-        left = l; right = r; up = u; down = d;
+        left = l; 
+        down = d;
+        size = s;
     }
 
 	int GetChildIDFromQuad(bitmask4 quad)

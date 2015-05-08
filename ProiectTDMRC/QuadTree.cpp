@@ -6,9 +6,16 @@
 
 bitmask4 QuadTree::GetQuadrant(Node &node, uQuadInt x, uQuadInt y)
 {
-	if(x < node.midX)
+    uQuadInt halfSize = node.size / 2;
+    x -= node.left;
+    y -= node.down;
+
+    assert(x < node.size);
+    assert(y < node.size);
+
+	if(x < halfSize)
 	{
-		if(y < node.midY)
+		if(y < halfSize)
 		{
 			return LOWER_LEFT;
 		}
@@ -19,7 +26,7 @@ bitmask4 QuadTree::GetQuadrant(Node &node, uQuadInt x, uQuadInt y)
 	}
 	else
 	{
-		if(y < node.midY)
+		if(y < halfSize)
 		{
 			return LOWER_RIGHT;
 		}
@@ -32,19 +39,21 @@ bitmask4 QuadTree::GetQuadrant(Node &node, uQuadInt x, uQuadInt y)
 
 int QuadTree::CreateChild(Node &parent, bitmask4 quadrant, std::vector<Node> &nodeVector)
 {
+    uQuadInt halfSize = parent.size / 2;
+
 	switch(quadrant)
 	{
 	case LOWER_LEFT:
-		nodeVector.push_back(Node(parent.left, parent.midX, parent.midY, parent.down));
+		nodeVector.push_back(Node(parent.left, parent.down, halfSize));
 		break;
 	case LOWER_RIGHT:
-		nodeVector.push_back(Node(parent.midX, parent.right, parent.midY, parent.down));
+		nodeVector.push_back(Node(parent.left + halfSize, parent.down, halfSize));
 		break;
 	case UPPER_RIGHT:
-		nodeVector.push_back(Node(parent.midX, parent.right, parent.up, parent.midY));
+		nodeVector.push_back(Node(parent.left + halfSize, parent.down + halfSize, halfSize));
 		break;
 	case UPPER_LEFT:
-		nodeVector.push_back(Node(parent.left, parent.midX, parent.up, parent.midY));
+        nodeVector.push_back(Node(parent.left, parent.down + halfSize, halfSize));
 		break;
 	default:
 		assert(false); //CreateChild called with invalid quadrant
@@ -57,20 +66,22 @@ int QuadTree::CreateChild(Node &parent, bitmask4 quadrant, std::vector<Node> &no
 
 Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 {
+    uQuadInt halfSize = parent->size / 2;
+
 	switch(quadrant)
 	{
 	case LOWER_LEFT:
-		return new Node(parent->left, parent->midX, parent->midY, parent->down);
+		return new Node(parent->left, parent->down, halfSize);
 		break;
 	case LOWER_RIGHT:
-		return new Node(parent->midX, parent->right, parent->midY, parent->down);
-		break;
+        return new Node(parent->left + halfSize, parent->down, halfSize);
+        break;
 	case UPPER_RIGHT:
-		return new Node(parent->midX, parent->right, parent->up, parent->midY);
-		break;
+        return new Node(parent->left + halfSize, parent->down + halfSize, halfSize);
+        break;
 	case UPPER_LEFT:
-		return new Node(parent->left, parent->midX, parent->up, parent->midY);
-		break;
+        return new Node(parent->left, parent->down + halfSize, halfSize);
+        break;
 	default:
 		assert(false); //CreateChild called with invalid quadrant
 		break;
@@ -90,7 +101,7 @@ QuadTree::QuadTree() : numNodes(0), rootNodeID(-1)
 
 bool QuadTree::IsLeaf(Node &node)
 {
-	return (node.right - node.left == 1);
+	return (node.size == 1);
 }
 
 void QuadTree::SetRootNode(uQuadInt x, uQuadInt y)
@@ -104,7 +115,7 @@ void QuadTree::SetRootNode(uQuadInt x, uQuadInt y)
         size *= 2;
     }
 
-    nodePool.push_back(Node(0, size, size, 0));
+    nodePool.push_back(Node(0, 0, size));
     distribution[0] = 1;
     rootNodeID = 0;
 }
@@ -113,12 +124,11 @@ void QuadTree::CheckDimensions(uQuadInt x, uQuadInt y)
 {
     Node &rootNode = nodePool[rootNodeID];
 
-    while(rootNode.right <= x || rootNode.up <= y)
+    while(rootNode.size <= x || rootNode.size <= y)
     {
-        assert(rootNode.right == rootNode.up);
         assert(rootNode.left == rootNode.down == 0);
 
-        Node newRoot(0, rootNode.right * 2, rootNode.up * 2, 0);
+        Node newRoot(0, 0, rootNode.size * 2);
         newRoot.lowerLeftID = rootNodeID;
         newRoot.mask = LOWER_LEFT;
         distribution[LOWER_LEFT]++;
@@ -141,8 +151,7 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 
 	int currentNodeID = rootNodeID;
 
-	while(	nodePool[currentNodeID].left + 1 < nodePool[currentNodeID].right &&
-			nodePool[currentNodeID].down + 1 < nodePool[currentNodeID].up)
+	while(	nodePool[currentNodeID].size > 1)
 	{
 		bitmask4 quad = GetQuadrant(nodePool[currentNodeID], x, y);
 		int nextNodeID = nodePool[currentNodeID].GetChildIDFromQuad(quad);
@@ -186,6 +195,7 @@ size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, s
     QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
 
     ReadParticles(particlePtr, numParticles);
+    std::cout<<"quad tree size: "<<nodePool.size() * sizeof(Node)<<std::endl;
     return WriteToBuffer(buf);
 }
 
@@ -235,7 +245,7 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     InfoHeader header;
 
-	breadthFirstNodes.push_back(&nodePool[0]);
+	breadthFirstNodes.push_back(&nodePool[rootNodeID]);
     unsigned int numNodes = 0;
 
     for(unsigned int i = 0; i < breadthFirstNodes.size(); i++)
@@ -267,7 +277,7 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 
     header.numNodes = numNodes;
     header.numRepeats = repeatingParticles.size();
-    header.size = nodePool[0].right;
+    header.size = nodePool[rootNodeID].size;
 
     buffer.sputn((char*)(&header), sizeof(InfoHeader));
 
@@ -347,7 +357,7 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 
 	std::queue<Node*> nodeQueue;
 
-	nodeQueue.push(new Node(0, header.size, header.size, 0));
+	nodeQueue.push(new Node(0, 0, header.size));
 	unsigned int i = 0;
 	bool stopAddingNodes = false;
 
