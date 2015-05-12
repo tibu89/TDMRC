@@ -91,7 +91,7 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 }
 
 
-QuadTree::QuadTree() : numNodes(0), rootNodeID(-1)
+QuadTree::QuadTree() : rootNodeID(-1)
 {
     for(unsigned int i = 0; i < 0x10; i++)
     {
@@ -122,13 +122,14 @@ void QuadTree::SetRootNode(uQuadInt x, uQuadInt y)
 
 void QuadTree::CheckDimensions(uQuadInt x, uQuadInt y)
 {
-    Node &rootNode = nodePool[rootNodeID];
+    Node *rootNodePtr = &nodePool[rootNodeID];
 
-    while(rootNode.size <= x || rootNode.size <= y)
+    while(rootNodePtr->size <= x || rootNodePtr->size <= y)
     {
-        assert(rootNode.left == rootNode.down == 0);
+        assert(rootNodePtr->left == 0);
+		assert(rootNodePtr->down == 0);
 
-        Node newRoot(0, 0, rootNode.size * 2);
+        Node newRoot(0, 0, rootNodePtr->size * 2);
         newRoot.lowerLeftID = rootNodeID;
         newRoot.mask = LOWER_LEFT;
         distribution[LOWER_LEFT]++;
@@ -136,7 +137,7 @@ void QuadTree::CheckDimensions(uQuadInt x, uQuadInt y)
         nodePool.push_back(newRoot);
         rootNodeID = nodePool.size() - 1;
 
-        rootNode = nodePool.back();
+        rootNodePtr = &nodePool.back();
     }
 }
 
@@ -165,8 +166,6 @@ void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 			nodePool[currentNodeID].mask |= quad;
 			distribution[nodePool[currentNodeID].mask]++;
             distribution[0]++;
-
-            numNodes++;
 		}
 
 		currentNodeID = nextNodeID;
@@ -187,7 +186,7 @@ void QuadTree::WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &outBuffer)
 
 unsigned int QuadTree::GetNumNodes()
 {
-    return numNodes;
+    return nodePool.size();
 }
 
 size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &buf)
@@ -211,7 +210,7 @@ void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
 
     for(unsigned int i = 1; i < numParticles; i++, p += 4)
     {
-        uQuadInt x = (p[0] << 8) + p[1];
+		uQuadInt x = (p[0] << 8) + p[1];
         uQuadInt y = (p[2] << 8) + p[3];
 
         if(previousX == x && previousY == y)
@@ -368,7 +367,7 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 
 		if(stopAddingNodes || (stopAddingNodes = (i >= header.numNodes)))
 		{
-			assert(currentNode->left == currentNode->midX);
+			assert(currentNode->size == 1);
 
             WriteParticle(currentNode->left, currentNode->down, outBuffer);
 		}

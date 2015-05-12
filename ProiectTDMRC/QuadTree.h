@@ -35,7 +35,7 @@ struct Node
 
 	Node(uQuadInt l = 0, uQuadInt d = 0, uQuadInt s = 1) : left(l), down(d), size(s)
 	{
-		assert(size > 1);
+		assert(size >= 1);
 
 		upperRightID = upperLeftID = lowerLeftID = lowerRightID = -1;
 
@@ -101,7 +101,6 @@ struct InfoHeader
 class QuadTree
 {
 private:
-	unsigned int numNodes;
     int rootNodeID;
 
 	unsigned int distribution[0x10];
