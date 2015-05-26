@@ -336,21 +336,23 @@ void QuadTree::Serialize(std::stringbuf &buffer)
 size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 {
     InfoHeader header;
+	unsigned int readBytes = 0;
+	unsigned int totalBytes = inBuffer.str().size();
 
-    inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
+    readBytes += (unsigned int)inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
 
     if(header.numRepeats > 0)
     {
         particle prevParticle(0,0);
         particle currentParticle(0,0);
 
-        inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
+        readBytes += (unsigned int)inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
 
         WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
 
         for(unsigned int i = 1; i < header.numRepeats; i++)
         {
-            inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
+            readBytes += (unsigned int)inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
 
             WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
             if(!(currentParticle == prevParticle))
@@ -371,6 +373,7 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	for(unsigned int i = 0; i < numPairs; i++)
 	{
 		unsigned char currentByte = inBuffer.sbumpc();
+		readBytes++;
 		bitmaskVector.push_back(currentByte & 0xF);
 		bitmaskVector.push_back(currentByte >> 4);
     }
@@ -378,23 +381,25 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
     if(header.numNodes % 2 != 0)
     {
         unsigned char lastByte = inBuffer.sbumpc();
+		readBytes++;
         bitmaskVector.push_back(lastByte);
 
         assert(lastByte < 0x10);
     }
 
-	std::queue<Node> nodeQueue;
+	std::vector<Node> nodeVector;
+	;
 
-	nodeQueue.push(Node(0, 0, header.size));
-	unsigned int i = 0;
+	nodeVector.push_back(Node(0, 0, header.size));
+	unsigned int nonLeavesCount = 0;
 	bool stopAddingNodes = false;
 
-	while(!nodeQueue.empty())
+	
+	for(unsigned int i = 0; i < nodeVector.size(); i++)
 	{
-		Node &currentNode = nodeQueue.front();
-		nodeQueue.pop();
+		Node currentNode = nodeVector[i];
 
-		if(stopAddingNodes || (stopAddingNodes = (i >= header.numNodes)))
+		if(stopAddingNodes || (stopAddingNodes = (nonLeavesCount >= header.numNodes)))
 		{
 			assert(currentNode.size == 1);
 
@@ -404,27 +409,27 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
         {
 			Node newNode;
 
-            currentNode.mask = bitmaskVector[i++];
+            currentNode.mask = bitmaskVector[nonLeavesCount++];
 			
 		    if(currentNode.mask & LOWER_LEFT)
 		    {
 			    CreateChild(currentNode, newNode, LOWER_LEFT);
-				nodeQueue.push(newNode);
+				nodeVector.push_back(newNode);
 		    }
 		    if(currentNode.mask & LOWER_RIGHT)
 		    {
 			    CreateChild(currentNode, newNode, LOWER_RIGHT);
-				nodeQueue.push(newNode);
+				nodeVector.push_back(newNode);
 		    }
 		    if(currentNode.mask & UPPER_LEFT)
 		    {
 			    CreateChild(currentNode, newNode, UPPER_LEFT);
-				nodeQueue.push(newNode);
+				nodeVector.push_back(newNode);
 		    }
 		    if(currentNode.mask & UPPER_RIGHT)
 		    {
 			    CreateChild(currentNode, newNode, UPPER_RIGHT);
-				nodeQueue.push(newNode);
+				nodeVector.push_back(newNode);
 		    }
         }
 	}
