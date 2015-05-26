@@ -4,8 +4,9 @@
 #include "ArithmeticEncoder.h"
 
 #include <fstream>
+#include <algorithm>
 
-static const unsigned int maxQuadSize = 64 * 256;
+static const unsigned int maxQuadSize = 64 << 8;
 
 bool particleCompare(particle &a, particle &b)
 {
@@ -41,40 +42,44 @@ bool particleCompare(particle &a, particle &b)
     return a.y < b.y;
 }
 
-bool particleWithinLimits(particle &p, int &lowX, int &highX, int &lowY, int &highY)
+void SetQuadPos(particle p, int &quadX, int &quadY)
 {
-    return p.x < highX && p.y < highY && p.x >= lowX && p.y >= lowY;
+    char *ptr = (char*)&p;
+
+    unsigned short x = 0, y = 0;
+
+    x = (ptr[0] << 8) + ptr[1];
+    y = (ptr[2] << 8) + ptr[3];
+
+    quadX = x / maxQuadSize;
+    quadY = y / maxQuadSize;
 }
 
 int compressWithQuadTrees(std::vector<particle> &particlesVector, std::stringbuf &outBuf)
 {
     int currentQuadX = 0, currentQuadY = 0;
     int lowX = 0, lowY = 0, highX = maxQuadSize, highY = maxQuadSize;
+    unsigned int startIndex = 0;
     QuadTree quadTree;
 
-    for(std::vector<particle>::iterator it = particlesVector.begin(); it != particlesVector.end(); it++)
+    std::sort(particlesVector.begin(), particlesVector.end(), particleCompare);
+
+    while(startIndex != particlesVector.size())
     {
-        particle currentParticle = *it;
+        particle firstParticle = particlesVector[startIndex];
+        SetQuadPos(firstParticle, currentQuadX, currentQuadY);
 
-        if(!particleWithinLimits(currentParticle, lowX, highX, lowY, highY))
-        {
-            quadTree.Serialize(outBuf);
-            quadTree.Reset();
+        lowX = currentQuadX * maxQuadSize;
+        lowY = currentQuadY * maxQuadSize;
 
-            currentQuadX = currentParticle.x / maxQuadSize;
-            currentQuadY = currentParticle.y / maxQuadSize;
+        highX = lowX + maxQuadSize;
+        highY = lowY + maxQuadSize;
 
-            lowX = currentQuadX * maxQuadSize;
-            lowY = currentQuadY * maxQuadSize;
+        startIndex = quadTree.ReadParticlesWithinLimits(particlesVector, startIndex, lowX, highX, lowY, highY);
 
-            highX = lowX + maxQuadSize;
-            highY = lowY + maxQuadSize;
-        }
-
-        quadTree.AddParticle(currentParticle.x, currentParticle.y);
+        quadTree.Serialize(outBuf);
+        quadTree.Reset();
     }
-
-    quadTree.Serialize(outBuf);
 
     return outBuf.str().size();
 }

@@ -207,20 +207,35 @@ unsigned int QuadTree::GetNumNodes()
     return nodePool.size();
 }
 
-void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
+bool particleWithinLimits(uQuadInt x, uQuadInt y, int lowX, int highX, int lowY, int highY)
+{
+    return x < highX && y < highY && x >= lowX && y >= lowY;
+}
+
+int QuadTree::ReadParticlesWithinLimits(std::vector<particle> &particlesVector, unsigned int startIndex, int lowX, int highX, int lowY, int highY)
 {
     unsigned short numRepeats = 0;
+    unsigned int i;
     uQuadInt previousX, previousY;
+
+    particle currentParticle = particlesVector[startIndex];
+    unsigned char* p = (unsigned char*)&currentParticle;
 
     previousX = (p[0] << 8) + p[1];
     previousY = (p[2] << 8) + p[3];
 
-    p+=4;
-
-    for(unsigned int i = 1; i < numParticles; i++, p += 4)
+    for(i = startIndex + 1; i < particlesVector.size(); i++)
     {
+        currentParticle = particlesVector[i];
+        p = (unsigned char*)&currentParticle;
+
 		uQuadInt x = (p[0] << 8) + p[1];
         uQuadInt y = (p[2] << 8) + p[3];
+
+        if(!particleWithinLimits(x, y, lowX, highX, lowY, highY))
+        {
+            break;
+        }
 
         if(previousX == x && previousY == y)
         {
@@ -245,6 +260,8 @@ void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
     {
         AddParticle(previousX, previousY);
     }
+
+    return i;
 }
 
 void QuadTree::Serialize(std::stringbuf &buffer)
@@ -289,8 +306,8 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     header.numRepeats = repeatingParticles.size();
     header.size = nodePool[rootNodeID].size;
 
-    header.offsetX = offX;
-    header.offsetY = offY;
+//    header.offsetX = offX;
+//    header.offsetY = offY;
 
     buffer.sputn((char*)(&header), sizeof(InfoHeader));
 

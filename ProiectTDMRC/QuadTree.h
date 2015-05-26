@@ -95,7 +95,7 @@ struct InfoHeader
 {
     unsigned int numNodes;
     unsigned int numRepeats;
-    int offsetX, offsetY;
+    //int offsetX, offsetY;
 
     uQuadInt size;
 };
@@ -119,16 +119,17 @@ private:
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
 
     void SetRootNode(uQuadInt x, uQuadInt y);
-    void CheckDimensions(uQuadInt x, uQuadInt y);
-    void ReadParticles(unsigned char *p, unsigned int numParticles);
+    void CheckDimensions(uQuadInt x, uQuadInt y);    
     size_t WriteToBuffer(std::stringbuf &buf);
+
+    void AddParticle(uQuadInt x, uQuadInt y);
 	
 public:
 	QuadTree();
 
     unsigned int GetNumNodes();
 
-    void AddParticle(uQuadInt x, uQuadInt y);
+    int ReadParticlesWithinLimits(std::vector<particle> &particlesVector, unsigned int startIndex, int lowX, int highX, int lowY, int highY);
     void SetOffsets(int _offX, int _offY){ offX = _offX; offY = _offY; }
     void Reset();
 
