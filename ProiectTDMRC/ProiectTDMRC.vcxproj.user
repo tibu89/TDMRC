@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>perlin_noise.edp compress perlin_noise.edpc perlin_noise.edpc decompress perlin_noise_d.edp</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>perlin_noise.edpc decompress perlin_noise_d.edp perlin_noise.edp compress perlin_noise.edpc </LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

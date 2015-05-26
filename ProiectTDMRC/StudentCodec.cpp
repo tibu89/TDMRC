@@ -6,12 +6,16 @@
 #include <fstream>
 #include <algorithm>
 
-static const unsigned int maxQuadSize = 64 << 8;
+static const unsigned int maxQuadRealSize = 64;
+static const unsigned int maxQuadSize = maxQuadRealSize << 8;
 
 bool particleCompare(particle &a, particle &b)
 {
-    unsigned short aQuadY = a.y / maxQuadSize;
-    unsigned short bQuadY = b.y / maxQuadSize;
+	unsigned char* ptrA = (unsigned char*)&a;
+	unsigned char* ptrB = (unsigned char*)&b;
+
+    unsigned short aQuadY = ptrA[2] / maxQuadRealSize;
+    unsigned short bQuadY = ptrB[2] / maxQuadRealSize;
 
     if(aQuadY < bQuadY)
     {
@@ -22,8 +26,8 @@ bool particleCompare(particle &a, particle &b)
         return false;
     }
 
-    unsigned short aQuadX = a.x / maxQuadSize;
-    unsigned short bQuadX = b.x / maxQuadSize;
+    unsigned short aQuadX = ptrA[0] / maxQuadRealSize;
+    unsigned short bQuadX = ptrB[0] / maxQuadRealSize;
 
     if(aQuadX < bQuadX)
     {
@@ -34,12 +38,19 @@ bool particleCompare(particle &a, particle &b)
         return false;
     }
 
-    if(a.y == b.y)
+    /*if(ptrA[3] == ptrB[3])
     {
-        return a.x < b.x;
+        return ptrA[1] < ptrB[1];
     }
 
-    return a.y < b.y;
+    return ptrA[3] < ptrB[3];*/
+
+	if(a.y == b.y)
+	{
+		return a.x < b.x;
+	}
+
+	return a.y < b.y;
 }
 
 void SetQuadPos(particle p, unsigned short &quadX, unsigned short &quadY)
@@ -64,7 +75,7 @@ int compressWithQuadTrees(std::vector<particle> &particlesVector, std::stringbuf
 
     std::sort(particlesVector.begin(), particlesVector.end(), particleCompare);
 
-    while(startIndex != particlesVector.size())
+    while(startIndex < particlesVector.size())
     {
         particle firstParticle = particlesVector[startIndex];
         SetQuadPos(firstParticle, currentQuadX, currentQuadY);

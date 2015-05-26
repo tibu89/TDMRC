@@ -339,99 +339,103 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	unsigned int readBytes = 0;
 	unsigned int totalBytes = inBuffer.str().size();
 
-    readBytes += (unsigned int)inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
-
-    if(header.numRepeats > 0)
-    {
-        particle prevParticle(0,0);
-        particle currentParticle(0,0);
-
-        readBytes += (unsigned int)inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
-
-        WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
-
-        for(unsigned int i = 1; i < header.numRepeats; i++)
-        {
-            readBytes += (unsigned int)inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
-
-            WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
-            if(!(currentParticle == prevParticle))
-            {
-                WriteParticle(currentParticle.x + header.offsetX, currentParticle.y + header.offsetY, outBuffer);
-            }
-
-            prevParticle = currentParticle;
-        }
-
-		WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
-    }
-
 	std::vector<bitmask4> bitmaskVector;
-
-	unsigned int numPairs = header.numNodes / 2;
-
-	for(unsigned int i = 0; i < numPairs; i++)
-	{
-		unsigned char currentByte = inBuffer.sbumpc();
-		readBytes++;
-		bitmaskVector.push_back(currentByte & 0xF);
-		bitmaskVector.push_back(currentByte >> 4);
-    }
-
-    if(header.numNodes % 2 != 0)
-    {
-        unsigned char lastByte = inBuffer.sbumpc();
-		readBytes++;
-        bitmaskVector.push_back(lastByte);
-
-        assert(lastByte < 0x10);
-    }
-
 	std::vector<Node> nodeVector;
-	;
 
-	nodeVector.push_back(Node(0, 0, header.size));
-	unsigned int nonLeavesCount = 0;
-	bool stopAddingNodes = false;
+	while(readBytes < totalBytes)
+	{
+		readBytes += (unsigned int)inBuffer.sgetn((char*)(&header), sizeof(InfoHeader));
+
+		if(header.numRepeats > 0)
+		{
+			particle prevParticle(0,0);
+			particle currentParticle(0,0);
+
+			readBytes += (unsigned int)inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
+
+			WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+
+			for(unsigned int i = 1; i < header.numRepeats; i++)
+			{
+				readBytes += (unsigned int)inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
+
+				WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+				if(!(currentParticle == prevParticle))
+				{
+					WriteParticle(currentParticle.x, currentParticle.y, outBuffer);
+				}
+
+				prevParticle = currentParticle;
+			}
+
+			WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+		}
+
+		unsigned int numPairs = header.numNodes / 2;
+
+		for(unsigned int i = 0; i < numPairs; i++)
+		{
+			unsigned char currentByte = inBuffer.sbumpc();
+			readBytes++;
+			bitmaskVector.push_back(currentByte & 0xF);
+			bitmaskVector.push_back(currentByte >> 4);
+		}
+
+		if(header.numNodes % 2 != 0)
+		{
+			unsigned char lastByte = inBuffer.sbumpc();
+			readBytes++;
+			bitmaskVector.push_back(lastByte);
+
+			assert(lastByte < 0x10);
+		}
+
+		nodeVector.push_back(Node(0, 0, header.size));
+		unsigned int nonLeavesCount = 0;
+		bool stopAddingNodes = false;
 
 	
-	for(unsigned int i = 0; i < nodeVector.size(); i++)
-	{
-		Node currentNode = nodeVector[i];
-
-		if(stopAddingNodes || (stopAddingNodes = (nonLeavesCount >= header.numNodes)))
+		for(unsigned int i = 0; i < nodeVector.size(); i++)
 		{
-			assert(currentNode.size == 1);
+			Node currentNode = nodeVector[i];
 
-			WriteParticle(currentNode.left + header.offsetX, currentNode.down + header.offsetY, outBuffer);
-		}
-        else
-        {
-			Node newNode;
+			if(stopAddingNodes || (stopAddingNodes = (nonLeavesCount >= header.numNodes)))
+			{
+				assert(currentNode.size == 1);
 
-            currentNode.mask = bitmaskVector[nonLeavesCount++];
+				WriteParticle(currentNode.left + header.offsetX, currentNode.down + header.offsetY, outBuffer);
+			}
+			else
+			{
+				Node newNode;
+
+				currentNode.mask = bitmaskVector[nonLeavesCount++];
 			
-		    if(currentNode.mask & LOWER_LEFT)
-		    {
-			    CreateChild(currentNode, newNode, LOWER_LEFT);
-				nodeVector.push_back(newNode);
-		    }
-		    if(currentNode.mask & LOWER_RIGHT)
-		    {
-			    CreateChild(currentNode, newNode, LOWER_RIGHT);
-				nodeVector.push_back(newNode);
-		    }
-		    if(currentNode.mask & UPPER_LEFT)
-		    {
-			    CreateChild(currentNode, newNode, UPPER_LEFT);
-				nodeVector.push_back(newNode);
-		    }
-		    if(currentNode.mask & UPPER_RIGHT)
-		    {
-			    CreateChild(currentNode, newNode, UPPER_RIGHT);
-				nodeVector.push_back(newNode);
-		    }
-        }
+				if(currentNode.mask & LOWER_LEFT)
+				{
+					CreateChild(currentNode, newNode, LOWER_LEFT);
+					nodeVector.push_back(newNode);
+				}
+				if(currentNode.mask & LOWER_RIGHT)
+				{
+					CreateChild(currentNode, newNode, LOWER_RIGHT);
+					nodeVector.push_back(newNode);
+				}
+				if(currentNode.mask & UPPER_LEFT)
+				{
+					CreateChild(currentNode, newNode, UPPER_LEFT);
+					nodeVector.push_back(newNode);
+				}
+				if(currentNode.mask & UPPER_RIGHT)
+				{
+					CreateChild(currentNode, newNode, UPPER_RIGHT);
+					nodeVector.push_back(newNode);
+				}
+			}
+		}
+
+		bitmaskVector.clear();
+		nodeVector.clear();
 	}
 
     return outBuffer.str().size();
