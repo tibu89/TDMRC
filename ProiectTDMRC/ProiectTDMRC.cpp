@@ -128,7 +128,7 @@ void test()
 	original_size = getFileContents("perlin_noise.edp", &original_data);
 	decompressed_size = getFileContents("perlin_noise_decompressed.edp", &decompressed);
 	std::cout<<Compare(original_data, original_size, decompressed, decompressed_size);
-	delete[] original_data;
+	//delete[] original_data;
 	delete[] decompressed;
 	std::cout<<"DONE: Compareing perlin_noise.edp with perlin_noise_decompressed.edp ...\n\n";
 

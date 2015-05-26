@@ -91,12 +91,27 @@ Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
 }
 
 
-QuadTree::QuadTree() : rootNodeID(-1)
+QuadTree::QuadTree() : rootNodeID(-1), offX(0), offY(0)
 {
     for(unsigned int i = 0; i < 0x10; i++)
     {
         distribution[i] = 0;
     }
+}
+
+void QuadTree::Reset()
+{
+    rootNodeID = -1;
+
+    for(unsigned int i = 0; i < 0x10; i++)
+    {
+        distribution[i] = 0;
+    }
+
+    repeatingParticles.clear();
+    nodePool.clear();
+
+    offX = offY = 0;
 }
 
 bool QuadTree::IsLeaf(Node &node)
@@ -143,6 +158,9 @@ void QuadTree::CheckDimensions(uQuadInt x, uQuadInt y)
 
 void QuadTree::AddParticle(uQuadInt x, uQuadInt y)
 {
+    x -= offX;
+    y -= offY;
+
     if(nodePool.size() == 0)
     {
         SetRootNode(x, y);
@@ -189,15 +207,6 @@ unsigned int QuadTree::GetNumNodes()
     return nodePool.size();
 }
 
-size_t QuadTree::Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &buf)
-{
-    QuickSort<unsigned int>::quicksort((unsigned int*)particlePtr, numParticles);
-
-    ReadParticles(particlePtr, numParticles);
-    std::cout<<"quad tree size: "<<nodePool.size() * sizeof(Node)<<std::endl;
-    return WriteToBuffer(buf);
-}
-
 void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
 {
     unsigned short numRepeats = 0;
@@ -240,6 +249,8 @@ void QuadTree::ReadParticles(unsigned char *p, unsigned int numParticles)
 
 void QuadTree::Serialize(std::stringbuf &buffer)
 {
+    if(rootNodeID == -1) return;
+
     std::vector<Node*> breadthFirstNodes;
 
     InfoHeader header;
@@ -278,9 +289,12 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     header.numRepeats = repeatingParticles.size();
     header.size = nodePool[rootNodeID].size;
 
+    header.offsetX = offX;
+    header.offsetY = offY;
+
     buffer.sputn((char*)(&header), sizeof(InfoHeader));
 
-    for(std::list<particle>::iterator it = repeatingParticles.begin(); it != repeatingParticles.end(); it++)
+    for(std::vector<particle>::iterator it = repeatingParticles.begin(); it != repeatingParticles.end(); it++)
     {
         buffer.sputn((char*)&(*it), sizeof(particle));
     }

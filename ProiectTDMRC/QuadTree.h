@@ -95,6 +95,8 @@ struct InfoHeader
 {
     unsigned int numNodes;
     unsigned int numRepeats;
+    int offsetX, offsetY;
+
     uQuadInt size;
 };
 
@@ -102,22 +104,20 @@ class QuadTree
 {
 private:
     int rootNodeID;
+    int offX, offY;
 
 	unsigned int distribution[0x10];
 
-    std::list<particle> repeatingParticles;
+    std::vector<particle> repeatingParticles;
 	std::vector<Node> nodePool;
 
 	bitmask4 GetQuadrant(Node &node, uQuadInt x, uQuadInt y);
-
-    void Serialize(std::stringbuf &buffer);
 
     static Node* CreateChild(Node *parentNode, bitmask4 quadrant);
 	static int   CreateChild(Node &parentNode, bitmask4 quadrant, std::vector<Node> &nodeVector);
     static bool IsLeaf(Node &node);
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
 
-    void AddParticle(uQuadInt x, uQuadInt y);
     void SetRootNode(uQuadInt x, uQuadInt y);
     void CheckDimensions(uQuadInt x, uQuadInt y);
     void ReadParticles(unsigned char *p, unsigned int numParticles);
@@ -128,7 +128,11 @@ public:
 
     unsigned int GetNumNodes();
 
-    size_t Encode(unsigned char *particlePtr, unsigned int numParticles, std::stringbuf &outBuf);
+    void AddParticle(uQuadInt x, uQuadInt y);
+    void SetOffsets(int _offX, int _offY){ offX = _offX; offY = _offY; }
+    void Reset();
+
+    void Serialize(std::stringbuf &buffer);
 
     static size_t Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer);
 };
