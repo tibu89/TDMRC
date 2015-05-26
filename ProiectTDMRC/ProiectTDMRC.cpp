@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 
 	return 0;*/
 
-    if(argc != 4)
+    if(argc < 4)
     {
         std::cout<<"Usage: input_file {compress | decompress} output_file. Arguments offered:\n";
 

@@ -75,6 +75,7 @@ int compressWithQuadTrees(std::vector<particle> &particlesVector, std::stringbuf
         highX = lowX + maxQuadSize;
         highY = lowY + maxQuadSize;
 
+        quadTree.SetOffsets(lowX, lowY);
         startIndex = quadTree.ReadParticlesWithinLimits(particlesVector, startIndex, lowX, highX, lowY, highY);
 
         quadTree.Serialize(outBuf);
@@ -119,6 +120,8 @@ size_t StudentCodec::decompress(void *in, size_t in_size, void **out)
 {
     std::stringbuf strBuf1(std::string((char*)in, in_size));
     std::stringbuf strBuf2;
+
+    delete[] in;
 
     ArithmeticEncoder<unsigned long long> ariEncoder;
     ariEncoder.Decode(strBuf1, strBuf2);

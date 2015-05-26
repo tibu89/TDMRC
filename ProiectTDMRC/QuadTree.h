@@ -95,7 +95,7 @@ struct InfoHeader
 {
     unsigned int numNodes;
     unsigned int numRepeats;
-    //int offsetX, offsetY;
+    int offsetX, offsetY;
 
     uQuadInt size;
 };

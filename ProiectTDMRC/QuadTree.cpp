@@ -306,8 +306,8 @@ void QuadTree::Serialize(std::stringbuf &buffer)
     header.numRepeats = repeatingParticles.size();
     header.size = nodePool[rootNodeID].size;
 
-//    header.offsetX = offX;
-//    header.offsetY = offY;
+    header.offsetX = offX;
+    header.offsetY = offY;
 
     buffer.sputn((char*)(&header), sizeof(InfoHeader));
 
