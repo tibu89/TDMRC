@@ -64,30 +64,28 @@ int QuadTree::CreateChild(Node &parent, bitmask4 quadrant, std::vector<Node> &no
 	return nodeVector.size() - 1;
 }
 
-Node* QuadTree::CreateChild(Node* parent, bitmask4 quadrant)
+void QuadTree::CreateChild(Node &parent, Node &child, bitmask4 quadrant)
 {
-    uQuadInt halfSize = parent->size / 2;
+    uQuadInt halfSize = parent.size / 2;
 
 	switch(quadrant)
 	{
 	case LOWER_LEFT:
-		return new Node(parent->left, parent->down, halfSize);
+		child = Node(parent.left, parent.down, halfSize);
 		break;
 	case LOWER_RIGHT:
-        return new Node(parent->left + halfSize, parent->down, halfSize);
+        child = Node(parent.left + halfSize, parent.down, halfSize);
         break;
 	case UPPER_RIGHT:
-        return new Node(parent->left + halfSize, parent->down + halfSize, halfSize);
+        child = Node(parent.left + halfSize, parent.down + halfSize, halfSize);
         break;
 	case UPPER_LEFT:
-        return new Node(parent->left, parent->down + halfSize, halfSize);
+        child = Node(parent.left, parent.down + halfSize, halfSize);
         break;
 	default:
 		assert(false); //CreateChild called with invalid quadrant
 		break;
 	}
-
-	return nullptr;
 }
 
 
@@ -348,22 +346,22 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 
         inBuffer.sgetn((char*)(&prevParticle), sizeof(particle));
 
-        WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+        WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
 
         for(unsigned int i = 1; i < header.numRepeats; i++)
         {
             inBuffer.sgetn((char*)(&currentParticle), sizeof(particle));
 
-            WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+            WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
             if(!(currentParticle == prevParticle))
             {
-                WriteParticle(currentParticle.x, currentParticle.y, outBuffer);
+                WriteParticle(currentParticle.x + header.offsetX, currentParticle.y + header.offsetY, outBuffer);
             }
 
             prevParticle = currentParticle;
         }
 
-        WriteParticle(prevParticle.x, prevParticle.y, outBuffer);
+		WriteParticle(prevParticle.x + header.offsetX, prevParticle.y + header.offsetY, outBuffer);
     }
 
 	std::vector<bitmask4> bitmaskVector;
@@ -385,46 +383,50 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
         assert(lastByte < 0x10);
     }
 
-	std::queue<Node*> nodeQueue;
+	std::queue<Node> nodeQueue;
 
-	nodeQueue.push(new Node(0, 0, header.size));
+	nodeQueue.push(Node(0, 0, header.size));
 	unsigned int i = 0;
 	bool stopAddingNodes = false;
 
 	while(!nodeQueue.empty())
 	{
-		Node* currentNode = nodeQueue.front();
+		Node &currentNode = nodeQueue.front();
 		nodeQueue.pop();
 
 		if(stopAddingNodes || (stopAddingNodes = (i >= header.numNodes)))
 		{
-			assert(currentNode->size == 1);
+			assert(currentNode.size == 1);
 
-            WriteParticle(currentNode->left, currentNode->down, outBuffer);
+			WriteParticle(currentNode.left + header.offsetX, currentNode.down + header.offsetY, outBuffer);
 		}
         else
         {
-            currentNode->mask = bitmaskVector[i++];
+			Node newNode;
 
-		    if(currentNode->mask & LOWER_LEFT)
+            currentNode.mask = bitmaskVector[i++];
+			
+		    if(currentNode.mask & LOWER_LEFT)
 		    {
-			    nodeQueue.push(CreateChild(currentNode, LOWER_LEFT));
+			    CreateChild(currentNode, newNode, LOWER_LEFT);
+				nodeQueue.push(newNode);
 		    }
-		    if(currentNode->mask & LOWER_RIGHT)
+		    if(currentNode.mask & LOWER_RIGHT)
 		    {
-			    nodeQueue.push(CreateChild(currentNode, LOWER_RIGHT));
+			    CreateChild(currentNode, newNode, LOWER_RIGHT);
+				nodeQueue.push(newNode);
 		    }
-		    if(currentNode->mask & UPPER_LEFT)
+		    if(currentNode.mask & UPPER_LEFT)
 		    {
-			    nodeQueue.push(CreateChild(currentNode, UPPER_LEFT));
+			    CreateChild(currentNode, newNode, UPPER_LEFT);
+				nodeQueue.push(newNode);
 		    }
-		    if(currentNode->mask & UPPER_RIGHT)
+		    if(currentNode.mask & UPPER_RIGHT)
 		    {
-			    nodeQueue.push(CreateChild(currentNode, UPPER_RIGHT));
+			    CreateChild(currentNode, newNode, UPPER_RIGHT);
+				nodeQueue.push(newNode);
 		    }
         }
-
-        delete currentNode;
 	}
 
     return outBuffer.str().size();

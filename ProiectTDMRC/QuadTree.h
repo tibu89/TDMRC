@@ -95,7 +95,7 @@ struct InfoHeader
 {
     unsigned int numNodes;
     unsigned int numRepeats;
-    int offsetX, offsetY;
+    uQuadInt offsetX, offsetY;
 
     uQuadInt size;
 };
@@ -104,7 +104,7 @@ class QuadTree
 {
 private:
     int rootNodeID;
-    int offX, offY;
+    uQuadInt offX, offY;
 
 	unsigned int distribution[0x10];
 
@@ -113,7 +113,7 @@ private:
 
 	bitmask4 GetQuadrant(Node &node, uQuadInt x, uQuadInt y);
 
-    static Node* CreateChild(Node *parentNode, bitmask4 quadrant);
+    static void  CreateChild(Node &parent, Node &child, bitmask4 quadrant);
 	static int   CreateChild(Node &parentNode, bitmask4 quadrant, std::vector<Node> &nodeVector);
     static bool IsLeaf(Node &node);
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);

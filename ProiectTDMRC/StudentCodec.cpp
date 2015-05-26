@@ -42,7 +42,7 @@ bool particleCompare(particle &a, particle &b)
     return a.y < b.y;
 }
 
-void SetQuadPos(particle p, int &quadX, int &quadY)
+void SetQuadPos(particle p, unsigned short &quadX, unsigned short &quadY)
 {
     char *ptr = (char*)&p;
 
@@ -57,8 +57,8 @@ void SetQuadPos(particle p, int &quadX, int &quadY)
 
 int compressWithQuadTrees(std::vector<particle> &particlesVector, std::stringbuf &outBuf)
 {
-    int currentQuadX = 0, currentQuadY = 0;
-    int lowX = 0, lowY = 0, highX = maxQuadSize, highY = maxQuadSize;
+    unsigned short currentQuadX = 0, currentQuadY = 0;
+    unsigned int lowX = 0, lowY = 0, highX = maxQuadSize, highY = maxQuadSize;
     unsigned int startIndex = 0;
     QuadTree quadTree;
 
