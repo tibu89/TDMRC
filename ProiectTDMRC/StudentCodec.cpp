@@ -5,8 +5,9 @@
 
 #include <fstream>
 #include <algorithm>
+#include <ctime>
 
-static const unsigned int maxQuadRealSize = 64;
+static const unsigned int maxQuadRealSize = 32;
 static const unsigned int maxQuadSize = maxQuadRealSize << 8;
 
 bool particleCompare(particle &a, particle &b)
@@ -37,13 +38,6 @@ bool particleCompare(particle &a, particle &b)
     {
         return false;
     }
-
-    /*if(ptrA[3] == ptrB[3])
-    {
-        return ptrA[1] < ptrB[1];
-    }
-
-    return ptrA[3] < ptrB[3];*/
 
 	if(a.y == b.y)
 	{
@@ -98,6 +92,7 @@ int compressWithQuadTrees(std::vector<particle> &particlesVector, std::stringbuf
 
 size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 {
+    std::clock_t start = std::clock();
 	unsigned char *p = static_cast<unsigned char*>(in);
 
 	unsigned int numParticles = in_size / 4;
@@ -121,6 +116,8 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 	outSize = strBufAriEnc.str().size();
     std::cout<<"size after arithmetic encode: "<<outSize<<" | compression ratio: "<<in_size / (float)outSize<<std::endl;
 
+    std::cout<<"compress time: "<<(std::clock() - start) / (double)CLOCKS_PER_SEC<<std::endl;
+
     *out = malloc(outSize);
     memcpy(*out, strBufAriEnc.str().c_str(), outSize);
 
@@ -129,6 +126,7 @@ size_t StudentCodec::compress(void *in, size_t in_size, void **out)
 
 size_t StudentCodec::decompress(void *in, size_t in_size, void **out)
 {
+    std::clock_t start = std::clock();
     std::stringbuf strBuf1(std::string((char*)in, in_size));
     std::stringbuf strBuf2;
 
@@ -136,12 +134,14 @@ size_t StudentCodec::decompress(void *in, size_t in_size, void **out)
 
     ArithmeticEncoder<unsigned long long> ariEncoder;
     ariEncoder.Decode(strBuf1, strBuf2);
-
+    strBuf1.str().resize(0);
     strBuf1.str("");
 
     std::cout<<"size after arithmetic decode: "<<strBuf2.str().size()<<std::endl;
 
     size_t outSize = QuadTree::Decode(strBuf2, strBuf1);
+
+    std::cout<<"decompress time: "<<(std::clock() - start) / (double)CLOCKS_PER_SEC<<std::endl;
 
     *out = new unsigned char[outSize];
     memcpy(*out, strBuf1.str().c_str(), outSize);

@@ -64,23 +64,23 @@ int QuadTree::CreateChild(Node &parent, bitmask4 quadrant, std::vector<Node> &no
 	return nodeVector.size() - 1;
 }
 
-void QuadTree::CreateChild(Node &parent, Node &child, bitmask4 quadrant)
+void QuadTree::CreateChild(BaseNode &parent, BaseNode &child, bitmask4 quadrant)
 {
     uQuadInt halfSize = parent.size / 2;
 
 	switch(quadrant)
 	{
 	case LOWER_LEFT:
-		child = Node(parent.left, parent.down, halfSize);
+		child = BaseNode(parent.left, parent.down, halfSize);
 		break;
 	case LOWER_RIGHT:
-        child = Node(parent.left + halfSize, parent.down, halfSize);
+        child = BaseNode(parent.left + halfSize, parent.down, halfSize);
         break;
 	case UPPER_RIGHT:
-        child = Node(parent.left + halfSize, parent.down + halfSize, halfSize);
+        child = BaseNode(parent.left + halfSize, parent.down + halfSize, halfSize);
         break;
 	case UPPER_LEFT:
-        child = Node(parent.left, parent.down + halfSize, halfSize);
+        child = BaseNode(parent.left, parent.down + halfSize, halfSize);
         break;
 	default:
 		assert(false); //CreateChild called with invalid quadrant
@@ -340,7 +340,7 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 	unsigned int totalBytes = inBuffer.str().size();
 
 	std::vector<bitmask4> bitmaskVector;
-	std::vector<Node> nodeVector;
+	std::vector<BaseNode> nodeVector;
 
 	while(readBytes < totalBytes)
 	{
@@ -390,14 +390,14 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 			assert(lastByte < 0x10);
 		}
 
-		nodeVector.push_back(Node(0, 0, header.size));
+		nodeVector.push_back(BaseNode(0, 0, header.size));
 		unsigned int nonLeavesCount = 0;
 		bool stopAddingNodes = false;
 
 	
 		for(unsigned int i = 0; i < nodeVector.size(); i++)
 		{
-			Node currentNode = nodeVector[i];
+			BaseNode currentNode = nodeVector[i];
 
 			if(stopAddingNodes || (stopAddingNodes = (nonLeavesCount >= header.numNodes)))
 			{
@@ -407,26 +407,26 @@ size_t QuadTree::Decode(std::stringbuf &inBuffer, std::stringbuf &outBuffer)
 			}
 			else
 			{
-				Node newNode;
+				BaseNode newNode;
 
-				currentNode.mask = bitmaskVector[nonLeavesCount++];
+				bitmask4 mask = bitmaskVector[nonLeavesCount++];
 			
-				if(currentNode.mask & LOWER_LEFT)
+				if(mask & LOWER_LEFT)
 				{
 					CreateChild(currentNode, newNode, LOWER_LEFT);
 					nodeVector.push_back(newNode);
 				}
-				if(currentNode.mask & LOWER_RIGHT)
+				if(mask & LOWER_RIGHT)
 				{
 					CreateChild(currentNode, newNode, LOWER_RIGHT);
 					nodeVector.push_back(newNode);
 				}
-				if(currentNode.mask & UPPER_LEFT)
+				if(mask & UPPER_LEFT)
 				{
 					CreateChild(currentNode, newNode, UPPER_LEFT);
 					nodeVector.push_back(newNode);
 				}
-				if(currentNode.mask & UPPER_RIGHT)
+				if(mask & UPPER_RIGHT)
 				{
 					CreateChild(currentNode, newNode, UPPER_RIGHT);
 					nodeVector.push_back(newNode);

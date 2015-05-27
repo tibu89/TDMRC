@@ -25,15 +25,21 @@ struct particle
     bool operator== (particle &p) {return x == p.x && y == p.y;}
 };
 
-struct Node
+struct BaseNode
 {
-	uQuadInt left, down;
-	uQuadInt size;
-    bitmask4 mask;
+    uQuadInt left, down;
+    uQuadInt size;
+
+    BaseNode(uQuadInt l = 0, uQuadInt d = 0, uQuadInt s = 1) : left(l), down(d), size(s) {}
+};
+
+struct Node : public BaseNode
+{
+	bitmask4 mask;
 
 	int upperRightID, upperLeftID, lowerLeftID, lowerRightID;
 
-	Node(uQuadInt l = 0, uQuadInt d = 0, uQuadInt s = 1) : left(l), down(d), size(s)
+	Node(uQuadInt l = 0, uQuadInt d = 0, uQuadInt s = 1) : BaseNode(l, d, s)
 	{
 		assert(size >= 1);
 
@@ -113,7 +119,7 @@ private:
 
 	bitmask4 GetQuadrant(Node &node, uQuadInt x, uQuadInt y);
 
-    static void  CreateChild(Node &parent, Node &child, bitmask4 quadrant);
+    static void  CreateChild(BaseNode &parent, BaseNode &child, bitmask4 quadrant);
 	static int   CreateChild(Node &parentNode, bitmask4 quadrant, std::vector<Node> &nodeVector);
     static bool IsLeaf(Node &node);
     static void WriteParticle(uQuadInt x, uQuadInt y, std::stringbuf &buffer);
