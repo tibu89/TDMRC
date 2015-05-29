@@ -1,4 +1,3 @@
-#include "Direct_Access_Image.h"
 #include "stdafx.h"
 #include "particle.h"
 #include "fixed_float.h"
@@ -12,15 +11,11 @@ public:
 	ElementalDust();
 	~ElementalDust();
 
-	void import(KImage *import, float multiplicator);
-
 	void import(char *file_name);
 
 	void import(void *file_contents, size_t size);
 
 	void SaveAs(char *file_name);
-
-	void SaveAs(KImage *import, float multiplicator);
 
 	ElementalDust& operator= (ElementalDust b_flt);
 

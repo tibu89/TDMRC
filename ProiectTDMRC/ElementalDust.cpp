@@ -42,56 +42,6 @@ void ElementalDust::sortParticles()
 	QuickSort<particle, compare>::quicksort(partiles_prt, nr_particles_int);
 }
 
-void ElementalDust::import(KImage *import, float multiplicator)
-{
-	clear();
-
-	//read at most 255x255 from the image size
-	int width = import->GetWidth();
-	int height = import->GetHeight();
-
-	if(width>255)
-		width = 255;
-	if(height>255)
-		height = 255;
-
-	//see how many particles we need
-	nr_particles_int = 0;
-	import ->BeginDirectAccess();
-	unsigned int crt_color_uint;
-	for (int j=0; j < height; j++)
-		for (int i=0; i < width; i++)
-		{
-			crt_color_uint = import->Get8BPPPixel(i, j);
-			nr_particles_int += crt_color_uint;
-		}
-	nr_particles_int = (int)(nr_particles_int * multiplicator);
-
-	//place particles
-	partiles_prt = new particle[nr_particles_int];
-
-	unsigned int index=0;
-	particle crt_particle;
-
-	for (int j=0; j < height; j++)
-		for (int i=0; i < width; i++)
-		{
-			crt_color_uint = (unsigned int)(import->Get8BPPPixel(i, j) * multiplicator);
-
-			for (unsigned int k=0; k<crt_color_uint ; k++)
-			{
-				crt_particle.x = fixed_float(i + ((float)(rand()%1000))/1000);
-				crt_particle.y = fixed_float(j + ((float)(rand()%1000))/1000);
-
-				partiles_prt[index] = crt_particle;
-
-				index++;
-			}
-		}
-
-	import ->EndDirectAccess();
-}
-
 void ElementalDust::import(char *file_name)
 {
 	clear();
@@ -157,37 +107,6 @@ void ElementalDust::SaveAs(char *file_name)
 	}
 
 	fclose (fout);
-}
-
-void ElementalDust::SaveAs(KImage *import, float multiplicator)
-{
-	int width = import->GetWidth();
-	int height = import->GetHeight();
-
-	import->BeginDirectAccess();
-	for (int j=0; j < height; j++)
-		for (int i=0; i < width; i++)
-		{
-			import->Put8BPPPixel(i, j, 0);
-		}
-
-	int x, y;
-	unsigned char crt_color_uchar;
-	for(int i=0; i<this->nr_particles_int; i++)
-	{
-		float x_f = partiles_prt[i].x.getFloat();
-		x = (int)(partiles_prt[i].x.getFloat() * multiplicator);
-		y = (int)(partiles_prt[i].y.getFloat() * multiplicator);
-
-		if(x>=width || y>=height)
-			continue;
-
-		crt_color_uchar = import->Get8BPPPixel(x, y);
-		if(crt_color_uchar<254)
-			import->Put8BPPPixel(x, y, crt_color_uchar+1);
-	}
-
-	import->EndDirectAccess();
 }
 
 ElementalDust& ElementalDust::operator= (ElementalDust b_ed)

@@ -1,8 +1,5 @@
 #include "stdafx.h"
 
-
-#include "Direct_Access_Image.h"
-#include "GenerateImage.h"
 #include "ElementalDust.h"
 
 #include "StudentCodec.h"
@@ -75,7 +72,7 @@ const char* Compare(void *original_data_p, size_t original_size, void *decompres
 	return "The buffers are identical.\n";
 }
 
-void test()
+/*void test()
 {
 	//set image properties
 	float km=4;	//scaling factor for the putput image (sqrt(km))
@@ -141,7 +138,7 @@ void test()
 	delete perlin_noise_km_img;
 	ed = ElementalDust();
 	std::cout<<"DONE: Converting perlin_noise_decompressed.edp to perlin_noise_decompressed.tif ...\n\n";
-}
+}*/
 
 /*
 struct compareX
